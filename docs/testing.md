@@ -14,7 +14,7 @@ This guide covers how to test `flin-google-ads-mcp` from zero to production conf
 Run these first on every change:
 
 ```bash
-uv sync --dev
+uv sync --extra dev
 python3 -m pytest
 python3 -m compileall src
 uv build

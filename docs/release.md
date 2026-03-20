@@ -16,7 +16,7 @@
 2. Run local checks:
 
 ```bash
-uv sync --dev
+uv sync --extra dev
 python3 -m pytest
 python3 -m compileall src
 uv build

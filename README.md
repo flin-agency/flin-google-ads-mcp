@@ -43,7 +43,7 @@ For MCC flows, you can also pass `login_customer_id` directly per tool call.
 ## Quickstart (from source)
 
 ```bash
-uv sync --dev
+uv sync --extra dev
 cp .env.example .env
 # Fill .env values
 uv run flin-google-ads-mcp
@@ -113,7 +113,7 @@ Operational usage guide:
 Fast path:
 
 ```bash
-uv sync --dev
+uv sync --extra dev
 python3 -m pytest
 python3 -m compileall src
 ```
