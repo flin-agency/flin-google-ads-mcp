@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flin-google-ads-mcp"
+version = "0.1.0"
+description = "Read-only MCP server for Google Ads entities and reporting."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "flin.agency" }
+]
+keywords = ["mcp", "google-ads", "model-context-protocol", "claude"]
+dependencies = [
+  "mcp>=1.6.0",
+  "google-ads>=29.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+flin-google-ads-mcp = "flin_google_ads_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/flin-agency/flin-google-ads-mcp"
+Repository = "https://github.com/flin-agency/flin-google-ads-mcp"
+Issues = "https://github.com/flin-agency/flin-google-ads-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flin_google_ads_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
