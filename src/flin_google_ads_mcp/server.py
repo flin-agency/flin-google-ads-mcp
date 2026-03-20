@@ -307,6 +307,8 @@ def get_insights(
     customer_id: str | None = None,
     level: str = "campaign",
     date_range: str = "LAST_30_DAYS",
+    start_date: str | None = None,
+    end_date: str | None = None,
     limit: int = 50,
     login_customer_id: str | None = None,
 ) -> dict[str, Any]:
@@ -314,7 +316,13 @@ def get_insights(
     try:
         settings = load_settings()
         resolved_customer_id = resolve_customer_id(customer_id, settings)
-        query = build_insights_query(level=level, date_range=date_range, limit=limit)
+        query = build_insights_query(
+            level=level,
+            date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+        )
         rows = run_search_query(
             resolved_customer_id, query, login_customer_id=login_customer_id
         )
@@ -361,6 +369,8 @@ def get_insights(
             "customer_id": resolved_customer_id,
             "level": level,
             "date_range": date_range,
+            "start_date": start_date,
+            "end_date": end_date,
             "count": len(items),
             "items": items,
         }
@@ -375,6 +385,8 @@ def get_keywords(
     ad_group_id: str | None = None,
     status: str = "ALL",
     date_range: str = "LAST_30_DAYS",
+    start_date: str | None = None,
+    end_date: str | None = None,
     limit: int = 100,
     login_customer_id: str | None = None,
 ) -> dict[str, Any]:
@@ -385,6 +397,8 @@ def get_keywords(
         query = build_keywords_query(
             status=status,
             date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
             campaign_id=campaign_id,
             ad_group_id=ad_group_id,
             limit=limit,
@@ -412,6 +426,8 @@ def get_keywords(
             "ok": True,
             "customer_id": resolved_customer_id,
             "date_range": date_range,
+            "start_date": start_date,
+            "end_date": end_date,
             "count": len(items),
             "items": items,
         }

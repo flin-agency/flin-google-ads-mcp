@@ -16,6 +16,8 @@ Use this guide when operating `flin-google-ads-mcp` from Claude or MCP Inspector
 - `get_keywords`
 - `get_insights`
 
+For metrics tools (`get_keywords`, `get_insights`), use either a preset `date_range` or `date_range=CUSTOM` with `start_date` + `end_date`.
+
 ## MCC and subaccount rules
 
 - `list_accessible_customers` does not validate manager-header behavior for all operations.

@@ -139,7 +139,23 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-arg customer_id=1234567890 \
   --tool-arg login_customer_id=0987654321 \
   --tool-arg level=campaign \
-  --tool-arg date_range=LAST_30_DAYS \
+  --tool-arg date_range=LAST_MONTH \
+  --tool-arg limit=10
+```
+
+Insights with custom date range:
+
+```bash
+npx -y @modelcontextprotocol/inspector --cli \
+  uv run flin-google-ads-mcp \
+  --method tools/call \
+  --tool-name get_insights \
+  --tool-arg customer_id=1234567890 \
+  --tool-arg login_customer_id=0987654321 \
+  --tool-arg level=campaign \
+  --tool-arg date_range=CUSTOM \
+  --tool-arg start_date=2026-03-01 \
+  --tool-arg end_date=2026-03-20 \
   --tool-arg limit=10
 ```
 
@@ -152,7 +168,7 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-name get_keywords \
   --tool-arg customer_id=1234567890 \
   --tool-arg login_customer_id=0987654321 \
-  --tool-arg date_range=LAST_30_DAYS \
+  --tool-arg date_range=LAST_90_DAYS \
   --tool-arg status=ENABLED \
   --tool-arg limit=25
 ```

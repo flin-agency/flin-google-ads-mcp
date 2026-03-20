@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from typing import Any
@@ -11,11 +12,18 @@ from .config import ConfigurationError, Settings, load_settings
 ALLOWED_DATE_RANGES = {
     "TODAY",
     "YESTERDAY",
+    "THIS_WEEK_MON_TODAY",
+    "THIS_WEEK_SUN_TODAY",
+    "LAST_WEEK_MON_SUN",
+    "LAST_WEEK_SUN_SAT",
     "LAST_7_DAYS",
     "LAST_14_DAYS",
     "LAST_30_DAYS",
+    "LAST_60_DAYS",
+    "LAST_90_DAYS",
     "THIS_MONTH",
     "LAST_MONTH",
+    "CUSTOM",
 }
 
 STATUS_ALIASES = {
@@ -87,6 +95,47 @@ def normalize_date_range(date_range: str) -> str:
             f"Invalid date_range {date_range!r}. Allowed values: {allowed}."
         )
     return normalized
+
+
+def normalize_iso_date(raw_date: str) -> str:
+    candidate = raw_date.strip()
+    try:
+        parsed = date.fromisoformat(candidate)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid date {raw_date!r}. Expected format YYYY-MM-DD."
+        ) from exc
+    return parsed.isoformat()
+
+
+def build_segments_date_filter(
+    *,
+    date_range: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    normalized_date_range = normalize_date_range(date_range)
+
+    if normalized_date_range == "CUSTOM":
+        if not start_date or not end_date:
+            raise ValueError(
+                "CUSTOM date_range requires both start_date and end_date."
+            )
+
+        normalized_start = normalize_iso_date(start_date)
+        normalized_end = normalize_iso_date(end_date)
+
+        if normalized_start > normalized_end:
+            raise ValueError("start_date must be less than or equal to end_date.")
+
+        return f"segments.date BETWEEN '{normalized_start}' AND '{normalized_end}'"
+
+    if start_date or end_date:
+        raise ValueError(
+            "start_date/end_date can only be used when date_range is CUSTOM."
+        )
+
+    return f"segments.date DURING {normalized_date_range}"
 
 
 def normalize_insight_level(level: str) -> str:
@@ -293,10 +342,21 @@ def build_ads_query(
     )
 
 
-def build_insights_query(*, level: str, date_range: str, limit: int) -> str:
+def build_insights_query(
+    *,
+    level: str,
+    date_range: str,
+    limit: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
     normalized_level = normalize_insight_level(level)
-    normalized_date_range = normalize_date_range(date_range)
     normalized_limit = clamp_limit(limit)
+    date_filter = build_segments_date_filter(
+        date_range=date_range,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
     metrics = (
         "metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, "
@@ -308,7 +368,7 @@ def build_insights_query(*, level: str, date_range: str, limit: int) -> str:
             "SELECT campaign.id, campaign.name, campaign.status, "
             f"{metrics} "
             "FROM campaign "
-            f"WHERE segments.date DURING {normalized_date_range} "
+            f"WHERE {date_filter} "
             "ORDER BY metrics.impressions DESC "
             f"LIMIT {normalized_limit}"
         )
@@ -319,7 +379,7 @@ def build_insights_query(*, level: str, date_range: str, limit: int) -> str:
             "ad_group.status, "
             f"{metrics} "
             "FROM ad_group "
-            f"WHERE segments.date DURING {normalized_date_range} "
+            f"WHERE {date_filter} "
             "ORDER BY metrics.impressions DESC "
             f"LIMIT {normalized_limit}"
         )
@@ -329,7 +389,7 @@ def build_insights_query(*, level: str, date_range: str, limit: int) -> str:
         "ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status, "
         f"{metrics} "
         "FROM ad_group_ad "
-        f"WHERE segments.date DURING {normalized_date_range} "
+        f"WHERE {date_filter} "
         "ORDER BY metrics.impressions DESC "
         f"LIMIT {normalized_limit}"
     )
@@ -382,13 +442,19 @@ def build_keywords_query(
     campaign_id: str | None,
     ad_group_id: str | None,
     limit: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> str:
     normalized_status = normalize_status(status)
-    normalized_date_range = normalize_date_range(date_range)
+    date_filter = build_segments_date_filter(
+        date_range=date_range,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
     filters = [
         "ad_group_criterion.type = KEYWORD",
-        f"segments.date DURING {normalized_date_range}",
+        date_filter,
     ]
 
     if campaign_id:

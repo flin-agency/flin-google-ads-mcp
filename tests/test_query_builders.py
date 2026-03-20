@@ -32,6 +32,10 @@ def test_normalize_date_range_rejects_unknown_value() -> None:
         normalize_date_range("LAST_365_DAYS")
 
 
+def test_normalize_date_range_accepts_last_90_days() -> None:
+    assert normalize_date_range("LAST_90_DAYS") == "LAST_90_DAYS"
+
+
 def test_normalize_customer_client_status_rejects_unknown_value() -> None:
     with pytest.raises(ValueError):
         normalize_customer_client_status("PAUSED")
@@ -56,6 +60,28 @@ def test_insights_query_level_changes_from_clause() -> None:
 
     assert "FROM campaign" in campaign_query
     assert "FROM ad_group_ad" in ad_query
+
+
+def test_insights_query_supports_custom_date_range() -> None:
+    query = build_insights_query(
+        level="campaign",
+        date_range="CUSTOM",
+        start_date="2026-02-01",
+        end_date="2026-02-28",
+        limit=20,
+    )
+    assert "segments.date BETWEEN '2026-02-01' AND '2026-02-28'" in query
+
+
+def test_insights_query_custom_date_range_requires_both_dates() -> None:
+    with pytest.raises(ValueError):
+        build_insights_query(
+            level="campaign",
+            date_range="CUSTOM",
+            start_date="2026-02-01",
+            end_date=None,
+            limit=20,
+        )
 
 
 def test_customer_clients_query_includes_level_filters() -> None:
@@ -84,6 +110,19 @@ def test_keywords_query_contains_keyword_view_and_filters() -> None:
     assert "segments.date DURING LAST_30_DAYS" in query
     assert "campaign.id = 1234567890" in query
     assert "ad_group_criterion.status = ENABLED" in query
+
+
+def test_keywords_query_supports_custom_date_range() -> None:
+    query = build_keywords_query(
+        status="ALL",
+        date_range="CUSTOM",
+        start_date="2026-03-01",
+        end_date="2026-03-20",
+        campaign_id=None,
+        ad_group_id=None,
+        limit=15,
+    )
+    assert "segments.date BETWEEN '2026-03-01' AND '2026-03-20'" in query
 
 
 def test_ads_query_includes_rsa_content_fields() -> None:

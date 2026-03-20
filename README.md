@@ -40,6 +40,25 @@ Optional:
 
 For MCC flows, you can also pass `login_customer_id` directly per tool call.
 
+## Date ranges
+
+`get_insights` and `get_keywords` support:
+
+- `TODAY`
+- `YESTERDAY`
+- `THIS_WEEK_MON_TODAY`
+- `THIS_WEEK_SUN_TODAY`
+- `LAST_WEEK_MON_SUN`
+- `LAST_WEEK_SUN_SAT`
+- `LAST_7_DAYS`
+- `LAST_14_DAYS`
+- `LAST_30_DAYS`
+- `LAST_60_DAYS`
+- `LAST_90_DAYS`
+- `THIS_MONTH`
+- `LAST_MONTH`
+- `CUSTOM` (requires `start_date` and `end_date` in `YYYY-MM-DD`)
+
 ## Quickstart (from source)
 
 ```bash
