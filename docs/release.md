@@ -40,3 +40,17 @@ git push origin main --tags
 ```bash
 uvx flin-google-ads-mcp@latest --help
 ```
+
+## If history was rewritten (e.g. ID redaction)
+
+After a force-push that rewrites `main` and tags, existing local clones must be resynced or recreated.
+
+Recommended clean re-sync:
+
+```bash
+git fetch --all --prune --tags
+git checkout main
+git reset --hard origin/main
+```
+
+Alternative: re-clone the repository.
