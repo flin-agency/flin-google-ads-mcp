@@ -17,6 +17,8 @@ from .google_ads import (
     get_google_ads_client,
     list_accessible_customer_ids,
     micros_to_currency,
+    normalize_customer_id,
+    normalize_insight_level,
     resolve_customer_id,
     run_search_query,
     to_float,
@@ -178,6 +180,75 @@ def get_customer_clients(
 
 
 @mcp.tool()
+def find_customer_clients(
+    manager_customer_id: str,
+    name_query: str,
+    status: str = "ALL",
+    direct_only: bool = False,
+    include_hidden: bool = False,
+    include_self: bool = False,
+    limit: int = 100,
+    login_customer_id: str | None = None,
+) -> dict[str, Any]:
+    """Find subaccounts by descriptive name under a specific manager account."""
+    try:
+        needle = name_query.strip().lower()
+        if not needle:
+            raise ValueError("name_query must not be empty.")
+
+        resolved_manager_customer_id = normalize_customer_id(manager_customer_id)
+        query = build_customer_clients_query(
+            status=status,
+            direct_only=direct_only,
+            include_hidden=include_hidden,
+            include_self=include_self,
+            limit=limit,
+        )
+        rows = run_search_query(
+            resolved_manager_customer_id, query, login_customer_id=login_customer_id
+        )
+
+        items = []
+        for row in rows:
+            descriptive_name = str(row.customer_client.descriptive_name)
+            if needle not in descriptive_name.lower():
+                continue
+
+            items.append(
+                {
+                    "client_customer_id": _customer_id_from_resource_name(
+                        str(row.customer_client.client_customer)
+                    ),
+                    "descriptive_name": descriptive_name,
+                    "level": to_int(row.customer_client.level),
+                    "status": enum_name(row.customer_client.status),
+                    "manager": bool(row.customer_client.manager),
+                    "hidden": bool(row.customer_client.hidden),
+                    "currency_code": str(row.customer_client.currency_code),
+                    "time_zone": str(row.customer_client.time_zone),
+                }
+            )
+
+        items.sort(
+            key=lambda item: (
+                item["level"],
+                item["descriptive_name"].lower(),
+                item["client_customer_id"],
+            )
+        )
+
+        return {
+            "ok": True,
+            "manager_customer_id": resolved_manager_customer_id,
+            "name_query": name_query,
+            "count": len(items),
+            "items": items,
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
+@mcp.tool()
 def get_campaigns(
     customer_id: str | None = None,
     status: str = "ALL",
@@ -316,8 +387,9 @@ def get_insights(
     try:
         settings = load_settings()
         resolved_customer_id = resolve_customer_id(customer_id, settings)
+        normalized_level = normalize_insight_level(level)
         query = build_insights_query(
-            level=level,
+            level=normalized_level,
             date_range=date_range,
             start_date=start_date,
             end_date=end_date,
@@ -327,7 +399,17 @@ def get_insights(
             resolved_customer_id, query, login_customer_id=login_customer_id
         )
 
-        if level.strip().lower() == "campaign":
+        if normalized_level == "customer":
+            items = [
+                {
+                    "customer_id": str(row.customer.id),
+                    "customer_name": str(row.customer.descriptive_name),
+                    "currency_code": str(row.customer.currency_code),
+                    "metrics": _metrics_payload(row.metrics),
+                }
+                for row in rows
+            ]
+        elif normalized_level == "campaign":
             items = [
                 {
                     "campaign_id": str(row.campaign.id),
@@ -337,7 +419,7 @@ def get_insights(
                 }
                 for row in rows
             ]
-        elif level.strip().lower() == "ad_group":
+        elif normalized_level == "ad_group":
             items = [
                 {
                     "campaign_id": str(row.campaign.id),

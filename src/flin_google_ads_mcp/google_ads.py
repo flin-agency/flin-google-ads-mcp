@@ -38,7 +38,11 @@ ALLOWED_ENTITY_STATUS = {
     "ACTIVE",
 }
 
-ALLOWED_INSIGHT_LEVELS = {"campaign", "ad_group", "ad"}
+ALLOWED_INSIGHT_LEVELS = {"campaign", "ad_group", "ad", "customer", "account"}
+
+INSIGHT_LEVEL_ALIASES = {
+    "account": "customer",
+}
 
 ALLOWED_CUSTOMER_CLIENT_STATUS = {
     "ALL",
@@ -143,7 +147,7 @@ def normalize_insight_level(level: str) -> str:
     if normalized not in ALLOWED_INSIGHT_LEVELS:
         allowed = ", ".join(sorted(ALLOWED_INSIGHT_LEVELS))
         raise ValueError(f"Invalid level {level!r}. Allowed values: {allowed}.")
-    return normalized
+    return INSIGHT_LEVEL_ALIASES.get(normalized, normalized)
 
 
 def normalize_customer_client_status(status: str) -> str:
@@ -362,6 +366,16 @@ def build_insights_query(
         "metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, "
         "metrics.cost_micros, metrics.conversions, metrics.conversions_value"
     )
+
+    if normalized_level == "customer":
+        return (
+            "SELECT customer.id, customer.descriptive_name, customer.currency_code, "
+            f"{metrics} "
+            "FROM customer "
+            f"WHERE {date_filter} "
+            "ORDER BY metrics.impressions DESC "
+            f"LIMIT {normalized_limit}"
+        )
 
     if normalized_level == "campaign":
         return (

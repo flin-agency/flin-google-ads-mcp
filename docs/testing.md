@@ -54,6 +54,7 @@ Expected:
 - `health_check`
 - `list_accessible_customers`
 - `get_customer_clients`
+- `find_customer_clients`
 - `get_campaigns`
 - `get_ad_groups`
 - `get_ads`
@@ -131,6 +132,23 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-arg limit=20
 ```
 
+Find customer clients by name under manager:
+
+```bash
+npx -y @modelcontextprotocol/inspector --cli \
+  uv run flin-google-ads-mcp \
+  --method tools/call \
+  --tool-name find_customer_clients \
+  --tool-arg manager_customer_id=0987654321 \
+  --tool-arg login_customer_id=0987654321 \
+  --tool-arg name_query=Avesco \
+  --tool-arg direct_only=false \
+  --tool-arg include_hidden=false \
+  --tool-arg include_self=false \
+  --tool-arg status=ALL \
+  --tool-arg limit=20
+```
+
 Insights:
 
 ```bash
@@ -142,6 +160,20 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-arg login_customer_id=0987654321 \
   --tool-arg level=campaign \
   --tool-arg date_range=LAST_MONTH \
+  --tool-arg limit=10
+```
+
+Account-level insights (`level=account`):
+
+```bash
+npx -y @modelcontextprotocol/inspector --cli \
+  uv run flin-google-ads-mcp \
+  --method tools/call \
+  --tool-name get_insights \
+  --tool-arg customer_id=1234567890 \
+  --tool-arg login_customer_id=0987654321 \
+  --tool-arg level=account \
+  --tool-arg date_range=YESTERDAY \
   --tool-arg limit=10
 ```
 
@@ -229,4 +261,4 @@ Before each release:
 1. `python3 -m pytest`
 2. `python3 -m compileall src`
 3. `uv build`
-4. Inspector smoke tests: `health_check`, `list_accessible_customers`, `get_customer_clients`, `get_campaigns`, `get_insights`, `get_keywords`
+4. Inspector smoke tests: `health_check`, `list_accessible_customers`, `get_customer_clients`, `find_customer_clients`, `get_campaigns`, `get_insights`, `get_keywords`

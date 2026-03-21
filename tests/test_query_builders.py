@@ -10,6 +10,7 @@ from flin_google_ads_mcp.google_ads import (
     normalize_customer_id,
     normalize_customer_client_status,
     normalize_date_range,
+    normalize_insight_level,
     normalize_status,
 )
 
@@ -60,6 +61,22 @@ def test_insights_query_level_changes_from_clause() -> None:
 
     assert "FROM campaign" in campaign_query
     assert "FROM ad_group_ad" in ad_query
+
+
+def test_normalize_insight_level_accepts_account_alias() -> None:
+    assert normalize_insight_level("account") == "customer"
+    assert normalize_insight_level("customer") == "customer"
+
+
+def test_insights_query_account_level_uses_customer_resource() -> None:
+    query = build_insights_query(
+        level="account", date_range="YESTERDAY", limit=5
+    )
+
+    assert "FROM customer" in query
+    assert "customer.descriptive_name" in query
+    assert "customer.currency_code" in query
+    assert "segments.date DURING YESTERDAY" in query
 
 
 def test_insights_query_supports_custom_date_range() -> None:

@@ -14,6 +14,7 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `health_check`
 - `list_accessible_customers`
 - `get_customer_clients`
+- `find_customer_clients`
 - `get_campaigns`
 - `get_ad_groups`
 - `get_ads`
@@ -21,6 +22,13 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `get_keywords`
 
 `get_ads` includes RSA content fields (headlines/descriptions/paths/final URLs) when available.
+
+`get_insights` supports:
+- `campaign`
+- `ad_group`
+- `ad`
+- `customer` (account-level metrics)
+- `account` (alias of `customer`)
 
 ## Requirements
 
@@ -39,6 +47,41 @@ Optional:
 - `GOOGLE_ADS_USE_PROTO_PLUS` (`true` by default)
 
 For MCC flows, you can also pass `login_customer_id` directly per tool call.
+
+## Quick flow: "Avesco spend yesterday"
+
+1. Find the subaccount by name under the manager:
+
+```json
+{
+  "tool": "find_customer_clients",
+  "args": {
+    "manager_customer_id": "6050181535",
+    "login_customer_id": "6050181535",
+    "name_query": "Avesco",
+    "direct_only": false,
+    "include_hidden": false,
+    "include_self": false,
+    "status": "ALL",
+    "limit": 50
+  }
+}
+```
+
+2. Use the returned `client_customer_id` with account-level insights:
+
+```json
+{
+  "tool": "get_insights",
+  "args": {
+    "customer_id": "2054139041",
+    "login_customer_id": "6050181535",
+    "level": "account",
+    "date_range": "YESTERDAY",
+    "limit": 10
+  }
+}
+```
 
 ## Date ranges
 
