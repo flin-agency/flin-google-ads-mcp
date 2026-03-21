@@ -28,6 +28,8 @@ What this validates:
 
 ## 2) Local MCP runtime test with Inspector
 
+Requires Node.js v25.8.1+ (for `npx` / Inspector CLI).
+
 ### 2.1 Export credentials in your shell
 
 ```bash

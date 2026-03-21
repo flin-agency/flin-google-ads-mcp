@@ -25,7 +25,7 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 ## Requirements
 
 1. Python 3.10+
-2. Node.js (only for MCP Inspector testing)
+2. Node.js v25.8.1+ (only for MCP Inspector testing)
 3. Google Ads API credentials:
 - `GOOGLE_ADS_DEVELOPER_TOKEN`
 - `GOOGLE_ADS_CLIENT_ID`
