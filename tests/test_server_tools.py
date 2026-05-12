@@ -55,6 +55,26 @@ def _insights_row() -> SimpleNamespace:
     )
 
 
+def _search_term_row() -> SimpleNamespace:
+    return SimpleNamespace(
+        campaign=SimpleNamespace(id="101", name="Brand Search"),
+        ad_group=SimpleNamespace(id="202", name="Brand Core"),
+        search_term_view=SimpleNamespace(
+            search_term="flin google ads",
+            status=_EnumName("ADDED"),
+        ),
+        metrics=SimpleNamespace(
+            impressions=800,
+            clicks=32,
+            ctr=0.04,
+            average_cpc=625000,
+            cost_micros=20000000,
+            conversions=4,
+            conversions_value=16000,
+        ),
+    )
+
+
 def test_find_customer_clients_filters_case_insensitive_contains(monkeypatch) -> None:
     monkeypatch.setattr(
         server, "build_customer_clients_query", lambda **kwargs: "SELECT ..."
@@ -133,3 +153,53 @@ def test_get_insights_account_level_returns_account_metrics(monkeypatch) -> None
     assert row["metrics"]["impressions"] == 1200
     assert row["metrics"]["clicks"] == 45
     assert row["metrics"]["cost"] == 39.375
+
+
+def test_get_keywords_echoes_conversion_filters(monkeypatch) -> None:
+    monkeypatch.setattr(server, "load_settings", lambda: object())
+    monkeypatch.setattr(
+        server, "resolve_customer_id", lambda customer_id, settings: customer_id
+    )
+    monkeypatch.setattr(server, "build_keywords_query", lambda **kwargs: "SELECT ...")
+    monkeypatch.setattr(server, "run_search_query", lambda *args, **kwargs: [])
+
+    result = server.get_keywords(
+        customer_id="2054139041",
+        date_range="LAST_30_DAYS",
+        conversion_action_name="event_generated_lead",
+        limit=10,
+    )
+
+    assert result["ok"] is True
+    assert result["conversion_action_id"] is None
+    assert result["conversion_action_name"] == "event_generated_lead"
+
+
+def test_get_search_terms_returns_search_term_rows(monkeypatch) -> None:
+    monkeypatch.setattr(server, "load_settings", lambda: object())
+    monkeypatch.setattr(
+        server, "resolve_customer_id", lambda customer_id, settings: customer_id
+    )
+    monkeypatch.setattr(server, "build_search_terms_query", lambda **kwargs: "SELECT ...")
+    monkeypatch.setattr(server, "run_search_query", lambda *args, **kwargs: [_search_term_row()])
+
+    result = server.get_search_terms(
+        customer_id="2054139041",
+        date_range="LAST_30_DAYS",
+        conversion_action_id="customers/2054139041/conversionActions/555",
+        limit=10,
+    )
+
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["conversion_action_id"] == "customers/2054139041/conversionActions/555"
+    assert result["conversion_action_name"] is None
+
+    row = result["items"][0]
+    assert row["campaign_id"] == "101"
+    assert row["campaign_name"] == "Brand Search"
+    assert row["ad_group_id"] == "202"
+    assert row["ad_group_name"] == "Brand Core"
+    assert row["search_term"] == "flin google ads"
+    assert row["status"] == "ADDED"
+    assert row["metrics"]["conversions"] == 4.0

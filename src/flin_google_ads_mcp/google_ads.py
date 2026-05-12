@@ -38,6 +38,16 @@ ALLOWED_ENTITY_STATUS = {
     "ACTIVE",
 }
 
+ALLOWED_SEARCH_TERM_STATUS = {
+    "ALL",
+    "ADDED",
+    "ADDED_EXCLUDED",
+    "EXCLUDED",
+    "NONE",
+    "UNKNOWN",
+    "UNSPECIFIED",
+}
+
 ALLOWED_INSIGHT_LEVELS = {"campaign", "ad_group", "ad", "customer", "account"}
 
 INSIGHT_LEVEL_ALIASES = {
@@ -53,6 +63,10 @@ ALLOWED_CUSTOMER_CLIENT_STATUS = {
     "UNKNOWN",
     "UNSPECIFIED",
 }
+
+CONVERSION_ACTION_RESOURCE_NAME_RE = re.compile(
+    r"^customers/\d+/conversionActions/\d+$"
+)
 
 
 def normalize_customer_id(raw_customer_id: str) -> str:
@@ -87,6 +101,14 @@ def normalize_status(status: str) -> str:
     normalized = STATUS_ALIASES.get(normalized, normalized)
     if normalized not in ALLOWED_ENTITY_STATUS:
         allowed = ", ".join(sorted(ALLOWED_ENTITY_STATUS))
+        raise ValueError(f"Invalid status {status!r}. Allowed values: {allowed}.")
+    return normalized
+
+
+def normalize_search_term_status(status: str) -> str:
+    normalized = status.strip().upper()
+    if normalized not in ALLOWED_SEARCH_TERM_STATUS:
+        allowed = ", ".join(sorted(ALLOWED_SEARCH_TERM_STATUS))
         raise ValueError(f"Invalid status {status!r}. Allowed values: {allowed}.")
     return normalized
 
@@ -150,6 +172,27 @@ def normalize_insight_level(level: str) -> str:
     return INSIGHT_LEVEL_ALIASES.get(normalized, normalized)
 
 
+def normalize_conversion_action_id(conversion_action_id: str) -> str:
+    normalized = conversion_action_id.strip()
+    if not normalized:
+        raise ValueError("conversion_action_id must not be empty.")
+    if not CONVERSION_ACTION_RESOURCE_NAME_RE.fullmatch(normalized):
+        raise ValueError(
+            "conversion_action_id must be a Google Ads resource name in the form "
+            "'customers/{customer_id}/conversionActions/{id}'."
+        )
+    return normalized
+
+
+def normalize_conversion_action_name(conversion_action_name: str) -> str:
+    normalized = conversion_action_name.strip()
+    if not normalized:
+        raise ValueError("conversion_action_name must not be empty.")
+    if "'" in normalized:
+        raise ValueError("conversion_action_name must not contain single quotes.")
+    return normalized
+
+
 def normalize_customer_client_status(status: str) -> str:
     normalized = status.strip().upper()
     normalized = STATUS_ALIASES.get(normalized, normalized)
@@ -163,6 +206,27 @@ def clamp_limit(limit: int, *, default: int = 50, max_limit: int = 500) -> int:
     if limit <= 0:
         return default
     return min(limit, max_limit)
+
+
+def build_conversion_action_filter(
+    *,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
+) -> str:
+    if conversion_action_id and conversion_action_name:
+        raise ValueError(
+            "Provide only one of conversion_action_id or conversion_action_name."
+        )
+
+    if conversion_action_id:
+        normalized_id = normalize_conversion_action_id(conversion_action_id)
+        return f"segments.conversion_action = '{normalized_id}'"
+
+    if conversion_action_name:
+        normalized_name = normalize_conversion_action_name(conversion_action_name)
+        return f"segments.conversion_action_name = '{normalized_name}'"
+
+    return ""
 
 
 @lru_cache(maxsize=16)
@@ -353,6 +417,8 @@ def build_insights_query(
     limit: int,
     start_date: str | None = None,
     end_date: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
 ) -> str:
     normalized_level = normalize_insight_level(level)
     normalized_limit = clamp_limit(limit)
@@ -361,6 +427,14 @@ def build_insights_query(
         start_date=start_date,
         end_date=end_date,
     )
+    conversion_filter = build_conversion_action_filter(
+        conversion_action_id=conversion_action_id,
+        conversion_action_name=conversion_action_name,
+    )
+    filters = [date_filter]
+    if conversion_filter:
+        filters.append(conversion_filter)
+    where_clause = " AND ".join(filters)
 
     metrics = (
         "metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, "
@@ -372,7 +446,7 @@ def build_insights_query(
             "SELECT customer.id, customer.descriptive_name, customer.currency_code, "
             f"{metrics} "
             "FROM customer "
-            f"WHERE {date_filter} "
+            f"WHERE {where_clause} "
             "ORDER BY metrics.impressions DESC "
             f"LIMIT {normalized_limit}"
         )
@@ -382,7 +456,7 @@ def build_insights_query(
             "SELECT campaign.id, campaign.name, campaign.status, "
             f"{metrics} "
             "FROM campaign "
-            f"WHERE {date_filter} "
+            f"WHERE {where_clause} "
             "ORDER BY metrics.impressions DESC "
             f"LIMIT {normalized_limit}"
         )
@@ -393,7 +467,7 @@ def build_insights_query(
             "ad_group.status, "
             f"{metrics} "
             "FROM ad_group "
-            f"WHERE {date_filter} "
+            f"WHERE {where_clause} "
             "ORDER BY metrics.impressions DESC "
             f"LIMIT {normalized_limit}"
         )
@@ -403,7 +477,7 @@ def build_insights_query(
         "ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status, "
         f"{metrics} "
         "FROM ad_group_ad "
-        f"WHERE {date_filter} "
+        f"WHERE {where_clause} "
         "ORDER BY metrics.impressions DESC "
         f"LIMIT {normalized_limit}"
     )
@@ -458,12 +532,18 @@ def build_keywords_query(
     limit: int,
     start_date: str | None = None,
     end_date: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
 ) -> str:
     normalized_status = normalize_status(status)
     date_filter = build_segments_date_filter(
         date_range=date_range,
         start_date=start_date,
         end_date=end_date,
+    )
+    conversion_filter = build_conversion_action_filter(
+        conversion_action_id=conversion_action_id,
+        conversion_action_name=conversion_action_name,
     )
 
     filters = [
@@ -477,6 +557,8 @@ def build_keywords_query(
         filters.append(f"ad_group.id = {normalize_entity_id(ad_group_id)}")
     if normalized_status != "ALL":
         filters.append(f"ad_group_criterion.status = {normalized_status}")
+    if conversion_filter:
+        filters.append(conversion_filter)
 
     where_clause = " AND ".join(filters)
     return (
@@ -489,4 +571,51 @@ def build_keywords_query(
         f"WHERE {where_clause} "
         "ORDER BY metrics.impressions DESC "
         f"LIMIT {clamp_limit(limit)}"
+    )
+
+
+def build_search_terms_query(
+    *,
+    status: str,
+    date_range: str,
+    campaign_id: str | None,
+    ad_group_id: str | None,
+    limit: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
+) -> str:
+    normalized_status = normalize_search_term_status(status)
+    date_filter = build_segments_date_filter(
+        date_range=date_range,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    conversion_filter = build_conversion_action_filter(
+        conversion_action_id=conversion_action_id,
+        conversion_action_name=conversion_action_name,
+    )
+
+    filters = [date_filter]
+
+    if campaign_id:
+        filters.append(f"campaign.id = {normalize_entity_id(campaign_id)}")
+    if ad_group_id:
+        filters.append(f"ad_group.id = {normalize_entity_id(ad_group_id)}")
+    if normalized_status != "ALL":
+        filters.append(f"search_term_view.status = {normalized_status}")
+    if conversion_filter:
+        filters.append(conversion_filter)
+
+    where_clause = " AND ".join(filters)
+    return (
+        "SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, "
+        "search_term_view.search_term, search_term_view.status, "
+        "metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, "
+        "metrics.cost_micros, metrics.conversions, metrics.conversions_value "
+        "FROM search_term_view "
+        f"WHERE {where_clause} "
+        "ORDER BY metrics.impressions DESC "
+        f"LIMIT {clamp_limit(limit, default=100)}"
     )

@@ -6,8 +6,10 @@ from flin_google_ads_mcp.google_ads import (
     build_customer_clients_query,
     build_insights_query,
     build_keywords_query,
+    build_search_terms_query,
     clamp_limit,
     normalize_customer_id,
+    normalize_conversion_action_name,
     normalize_customer_client_status,
     normalize_date_range,
     normalize_insight_level,
@@ -90,6 +92,11 @@ def test_insights_query_supports_custom_date_range() -> None:
     assert "segments.date BETWEEN '2026-02-01' AND '2026-02-28'" in query
 
 
+def test_normalize_conversion_action_name_rejects_blank_value() -> None:
+    with pytest.raises(ValueError):
+        normalize_conversion_action_name("   ")
+
+
 def test_insights_query_custom_date_range_requires_both_dates() -> None:
     with pytest.raises(ValueError):
         build_insights_query(
@@ -140,6 +147,60 @@ def test_keywords_query_supports_custom_date_range() -> None:
         limit=15,
     )
     assert "segments.date BETWEEN '2026-03-01' AND '2026-03-20'" in query
+
+
+def test_insights_query_supports_conversion_action_id_filter() -> None:
+    query = build_insights_query(
+        level="campaign",
+        date_range="LAST_7_DAYS",
+        conversion_action_id="customers/1234567890/conversionActions/555",
+        limit=20,
+    )
+
+    assert "segments.conversion_action = 'customers/1234567890/conversionActions/555'" in query
+
+
+def test_insights_query_supports_conversion_action_name_filter() -> None:
+    query = build_insights_query(
+        level="campaign",
+        date_range="LAST_7_DAYS",
+        conversion_action_name="event_generated_lead",
+        limit=20,
+    )
+
+    assert "segments.conversion_action_name = 'event_generated_lead'" in query
+
+
+def test_keywords_query_rejects_multiple_conversion_filters() -> None:
+    with pytest.raises(ValueError):
+        build_keywords_query(
+            status="ALL",
+            date_range="LAST_30_DAYS",
+            start_date=None,
+            end_date=None,
+            campaign_id=None,
+            ad_group_id=None,
+            conversion_action_id="customers/1234567890/conversionActions/555",
+            conversion_action_name="event_generated_lead",
+            limit=15,
+        )
+
+
+def test_search_terms_query_contains_search_term_view_and_conversion_filter() -> None:
+    query = build_search_terms_query(
+        status="ALL",
+        date_range="LAST_30_DAYS",
+        campaign_id="123-456-7890",
+        ad_group_id=None,
+        conversion_action_name="event_generated_lead",
+        limit=25,
+    )
+
+    assert "FROM search_term_view" in query
+    assert "search_term_view.search_term" in query
+    assert "search_term_view.status" in query
+    assert "segments.conversion_action_name = 'event_generated_lead'" in query
+    assert "campaign.id = 1234567890" in query
 
 
 def test_ads_query_includes_rsa_content_fields() -> None:

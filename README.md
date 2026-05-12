@@ -20,6 +20,7 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `get_ads`
 - `get_insights`
 - `get_keywords`
+- `get_search_terms`
 
 `get_ads` includes RSA content fields (headlines/descriptions/paths/final URLs) when available.
 
@@ -29,6 +30,22 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `ad`
 - `customer` (account-level metrics)
 - `account` (alias of `customer`)
+
+`get_search_terms` is backed by `search_term_view`, so it returns actual user search terms rather than configured keywords.
+
+## Conversion action filters
+
+`get_insights`, `get_keywords`, and `get_search_terms` support optional conversion-action filters:
+
+- `conversion_action_id`
+- `conversion_action_name`
+
+Rules:
+- pass at most one of the two parameters
+- `conversion_action_id` must be a Google Ads resource name such as `customers/1234567890/conversionActions/555`
+- `conversion_action_name` matches `segments.conversion_action_name`
+
+If neither parameter is passed, metrics stay aggregated across all conversion actions as before.
 
 ## Requirements
 
@@ -85,7 +102,7 @@ For MCC flows, you can also pass `login_customer_id` directly per tool call.
 
 ## Date ranges
 
-`get_insights` and `get_keywords` support:
+`get_insights`, `get_keywords`, and `get_search_terms` support:
 
 - `TODAY`
 - `YESTERDAY`

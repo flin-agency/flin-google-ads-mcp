@@ -12,6 +12,7 @@ from .google_ads import (
     build_customer_clients_query,
     build_insights_query,
     build_keywords_query,
+    build_search_terms_query,
     enum_name,
     format_google_ads_error,
     get_google_ads_client,
@@ -380,6 +381,8 @@ def get_insights(
     date_range: str = "LAST_30_DAYS",
     start_date: str | None = None,
     end_date: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
     limit: int = 50,
     login_customer_id: str | None = None,
 ) -> dict[str, Any]:
@@ -393,6 +396,8 @@ def get_insights(
             date_range=date_range,
             start_date=start_date,
             end_date=end_date,
+            conversion_action_id=conversion_action_id,
+            conversion_action_name=conversion_action_name,
             limit=limit,
         )
         rows = run_search_query(
@@ -453,6 +458,8 @@ def get_insights(
             "date_range": date_range,
             "start_date": start_date,
             "end_date": end_date,
+            "conversion_action_id": conversion_action_id,
+            "conversion_action_name": conversion_action_name,
             "count": len(items),
             "items": items,
         }
@@ -469,6 +476,8 @@ def get_keywords(
     date_range: str = "LAST_30_DAYS",
     start_date: str | None = None,
     end_date: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
     limit: int = 100,
     login_customer_id: str | None = None,
 ) -> dict[str, Any]:
@@ -483,6 +492,8 @@ def get_keywords(
             end_date=end_date,
             campaign_id=campaign_id,
             ad_group_id=ad_group_id,
+            conversion_action_id=conversion_action_id,
+            conversion_action_name=conversion_action_name,
             limit=limit,
         )
         rows = run_search_query(
@@ -510,6 +521,69 @@ def get_keywords(
             "date_range": date_range,
             "start_date": start_date,
             "end_date": end_date,
+            "conversion_action_id": conversion_action_id,
+            "conversion_action_name": conversion_action_name,
+            "count": len(items),
+            "items": items,
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
+@mcp.tool()
+def get_search_terms(
+    customer_id: str | None = None,
+    campaign_id: str | None = None,
+    ad_group_id: str | None = None,
+    status: str = "ALL",
+    date_range: str = "LAST_30_DAYS",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
+    limit: int = 100,
+    login_customer_id: str | None = None,
+) -> dict[str, Any]:
+    """Get search-term-level entities and performance metrics."""
+    try:
+        settings = load_settings()
+        resolved_customer_id = resolve_customer_id(customer_id, settings)
+        query = build_search_terms_query(
+            status=status,
+            date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
+            campaign_id=campaign_id,
+            ad_group_id=ad_group_id,
+            conversion_action_id=conversion_action_id,
+            conversion_action_name=conversion_action_name,
+            limit=limit,
+        )
+        rows = run_search_query(
+            resolved_customer_id, query, login_customer_id=login_customer_id
+        )
+
+        items = [
+            {
+                "campaign_id": str(row.campaign.id),
+                "campaign_name": str(row.campaign.name),
+                "ad_group_id": str(row.ad_group.id),
+                "ad_group_name": str(row.ad_group.name),
+                "search_term": str(row.search_term_view.search_term),
+                "status": enum_name(row.search_term_view.status),
+                "metrics": _metrics_payload(row.metrics),
+            }
+            for row in rows
+        ]
+
+        return {
+            "ok": True,
+            "customer_id": resolved_customer_id,
+            "date_range": date_range,
+            "start_date": start_date,
+            "end_date": end_date,
+            "conversion_action_id": conversion_action_id,
+            "conversion_action_name": conversion_action_name,
             "count": len(items),
             "items": items,
         }
