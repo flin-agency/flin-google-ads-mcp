@@ -4,6 +4,15 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from .auth import (
+    build_auth_url,
+    clear_stored_refresh_token,
+    exchange_code_for_refresh_token,
+    get_auth_file_path,
+    load_stored_refresh_token,
+    resolve_refresh_token,
+    save_refresh_token,
+)
 from .config import ConfigurationError, load_settings, missing_required_env_vars
 from .google_ads import (
     build_ad_group_query,
@@ -38,6 +47,10 @@ mcp = FastMCP(
 
 def _error_payload(exc: Exception) -> dict[str, Any]:
     return {"ok": False, "error": format_google_ads_error(exc)}
+
+
+def _is_missing_refresh_token(exc: Exception) -> bool:
+    return isinstance(exc, ConfigurationError) and "refresh token" in str(exc).lower()
 
 
 def _metrics_payload(metrics: Any) -> dict[str, Any]:
@@ -98,6 +111,13 @@ def health_check() -> dict[str, Any]:
         settings = load_settings()
         get_google_ads_client()
     except Exception as exc:
+        if _is_missing_refresh_token(exc):
+            return {
+                "ok": False,
+                "status": "missing_auth",
+                "auth_tool": "get_auth_url",
+                "message": str(exc),
+            }
         return _error_payload(exc)
 
     return {
@@ -106,6 +126,95 @@ def health_check() -> dict[str, Any]:
         "default_customer_id": settings.default_customer_id,
         "login_customer_id": settings.login_customer_id,
     }
+
+
+@mcp.tool()
+def auth_status() -> dict[str, Any]:
+    """Report whether Google Ads OAuth auth is available without exposing secrets."""
+    auth_file = get_auth_file_path()
+    missing = missing_required_env_vars()
+    if missing:
+        return {
+            "ok": False,
+            "status": "missing_configuration",
+            "missing_env_vars": missing,
+            "auth_file": str(auth_file),
+        }
+
+    try:
+        settings = load_settings()
+        stored_token = load_stored_refresh_token(auth_file=auth_file)
+        resolved = resolve_refresh_token(settings, auth_file=auth_file)
+    except Exception as exc:
+        if _is_missing_refresh_token(exc):
+            return {
+                "ok": False,
+                "status": "missing_refresh_token",
+                "refresh_token_source": None,
+                "auth_file": str(auth_file),
+                "has_env_refresh_token": False,
+                "has_stored_refresh_token": False,
+                "auth_tool": "get_auth_url",
+            }
+        return _error_payload(exc)
+
+    return {
+        "ok": True,
+        "status": "ready",
+        "refresh_token_source": resolved.source,
+        "auth_file": str(auth_file),
+        "has_env_refresh_token": bool(
+            settings.refresh_token and settings.refresh_token.strip()
+        ),
+        "has_stored_refresh_token": stored_token is not None,
+    }
+
+
+@mcp.tool()
+def get_auth_url() -> dict[str, Any]:
+    """Create a Google OAuth consent URL for generating a refresh token."""
+    try:
+        settings = load_settings()
+        return {
+            "ok": True,
+            "auth_url": build_auth_url(settings),
+            "next_tool": "save_refresh_token_from_code",
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
+@mcp.tool()
+def save_refresh_token_from_code(code: str) -> dict[str, Any]:
+    """Exchange a Google OAuth authorization code for a refresh token and store it locally."""
+    try:
+        settings = load_settings()
+        refresh_token = exchange_code_for_refresh_token(settings, code)
+        auth_file = save_refresh_token(refresh_token, auth_file=get_auth_file_path())
+        get_google_ads_client.cache_clear()
+        return {
+            "ok": True,
+            "status": "stored",
+            "auth_file": str(auth_file),
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
+@mcp.tool()
+def clear_auth_token() -> dict[str, Any]:
+    """Delete the locally stored refresh token."""
+    try:
+        auth_file = get_auth_file_path()
+        deleted = clear_stored_refresh_token(auth_file=auth_file)
+        get_google_ads_client.cache_clear()
+        return {
+            "ok": True,
+            "status": "deleted" if deleted else "not_found",
+            "auth_file": str(auth_file),
+        }
+    except Exception as exc:
+        return _error_payload(exc)
 
 
 @mcp.tool()

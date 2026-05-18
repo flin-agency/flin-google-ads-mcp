@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import Any
 import re
 
+from .auth import resolve_refresh_token
 from .config import ConfigurationError, Settings, load_settings
 
 
@@ -232,6 +233,7 @@ def build_conversion_action_filter(
 @lru_cache(maxsize=16)
 def get_google_ads_client(login_customer_id: str | None = None) -> Any:
     settings = load_settings()
+    refresh_token = resolve_refresh_token(settings).value
 
     try:
         from google.ads.googleads.client import GoogleAdsClient
@@ -244,7 +246,7 @@ def get_google_ads_client(login_customer_id: str | None = None) -> Any:
         "developer_token": settings.developer_token,
         "client_id": settings.client_id,
         "client_secret": settings.client_secret,
-        "refresh_token": settings.refresh_token,
+        "refresh_token": refresh_token,
         "use_proto_plus": settings.use_proto_plus,
     }
 

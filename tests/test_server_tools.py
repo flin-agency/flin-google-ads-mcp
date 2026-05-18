@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from flin_google_ads_mcp.config import ConfigurationError, Settings
 from flin_google_ads_mcp import server
 
 
@@ -73,6 +74,79 @@ def _search_term_row() -> SimpleNamespace:
             conversions_value=16000,
         ),
     )
+
+
+def _settings(refresh_token: str | None = None) -> Settings:
+    return Settings(
+        developer_token="dev",
+        client_id="client-id.apps.googleusercontent.com",
+        client_secret="client-secret",
+        refresh_token=refresh_token,
+        login_customer_id=None,
+        default_customer_id=None,
+        use_proto_plus=True,
+    )
+
+
+def test_auth_status_reports_missing_refresh_token(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(server, "missing_required_env_vars", lambda: [])
+    monkeypatch.setattr(server, "load_settings", lambda: _settings())
+    monkeypatch.setattr(server, "get_auth_file_path", lambda: tmp_path / "auth.json")
+
+    result = server.auth_status()
+
+    assert result["ok"] is False
+    assert result["status"] == "missing_refresh_token"
+    assert result["refresh_token_source"] is None
+    assert result["auth_file"] == str(tmp_path / "auth.json")
+    assert result["has_stored_refresh_token"] is False
+    assert "client-secret" not in str(result)
+
+
+def test_get_auth_url_returns_consent_url_without_client_secret(monkeypatch) -> None:
+    monkeypatch.setattr(server, "load_settings", lambda: _settings())
+
+    result = server.get_auth_url()
+
+    assert result["ok"] is True
+    assert result["auth_url"].startswith("https://accounts.google.com/o/oauth2/v2/auth?")
+    assert "client-id.apps.googleusercontent.com" in result["auth_url"]
+    assert "client-secret" not in result["auth_url"]
+
+
+def test_save_refresh_token_from_code_stores_exchanged_token(monkeypatch, tmp_path) -> None:
+    auth_file = tmp_path / "auth.json"
+    monkeypatch.setattr(server, "load_settings", lambda: _settings())
+    monkeypatch.setattr(server, "get_auth_file_path", lambda: auth_file)
+    monkeypatch.setattr(
+        server,
+        "exchange_code_for_refresh_token",
+        lambda settings, code: "stored-refresh",
+    )
+
+    result = server.save_refresh_token_from_code("http://127.0.0.1:8080/?code=abc")
+
+    assert result["ok"] is True
+    assert result["status"] == "stored"
+    assert result["auth_file"] == str(auth_file)
+    assert "stored-refresh" not in str(result)
+
+
+def test_health_check_reports_missing_refresh_token_as_auth_required(monkeypatch) -> None:
+    monkeypatch.setattr(server, "missing_required_env_vars", lambda: [])
+    monkeypatch.setattr(server, "load_settings", lambda: _settings())
+
+    def missing_token() -> None:
+        raise ConfigurationError("Missing Google Ads refresh token. Call get_auth_url.")
+
+    monkeypatch.setattr(server, "get_google_ads_client", missing_token)
+
+    result = server.health_check()
+
+    assert result["ok"] is False
+    assert result["status"] == "missing_auth"
+    assert result["auth_tool"] == "get_auth_url"
+    assert "refresh token" in result["message"]
 
 
 def test_find_customer_clients_filters_case_insensitive_contains(monkeypatch) -> None:

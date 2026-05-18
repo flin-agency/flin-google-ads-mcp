@@ -36,10 +36,16 @@ Requires Node.js v25.8.1+ (for `npx` / Inspector CLI).
 export GOOGLE_ADS_DEVELOPER_TOKEN="..."
 export GOOGLE_ADS_CLIENT_ID="..."
 export GOOGLE_ADS_CLIENT_SECRET="..."
-export GOOGLE_ADS_REFRESH_TOKEN="..."
 export GOOGLE_ADS_CUSTOMER_ID="1234567890"
 export GOOGLE_ADS_LOGIN_CUSTOMER_ID="1234567890"
 ```
+
+If no refresh token has been stored yet, generate it through MCP:
+
+1. Call `auth_status`.
+2. Call `get_auth_url`.
+3. Open the returned URL and sign in.
+4. Pass the copied `code` value or full redirected URL to `save_refresh_token_from_code`.
 
 ### 2.2 List tools (CLI mode)
 
@@ -52,6 +58,10 @@ npx -y @modelcontextprotocol/inspector --cli \
 Expected:
 
 - `health_check`
+- `auth_status`
+- `get_auth_url`
+- `save_refresh_token_from_code`
+- `clear_auth_token`
 - `list_accessible_customers`
 - `get_customer_clients`
 - `find_customer_clients`
@@ -221,7 +231,6 @@ Use this config:
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
-        "GOOGLE_ADS_REFRESH_TOKEN": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
         "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "1234567890"
       }
@@ -243,6 +252,11 @@ Then ask Claude:
 
 - One or more required env vars are missing.
 - Fix: compare with `.env.example`.
+
+`missing_auth` or `missing_refresh_token`:
+
+- The fixed Google Ads credentials are present, but no refresh token is configured or stored.
+- Fix: run `get_auth_url`, complete Google consent, then run `save_refresh_token_from_code`.
 
 `PERMISSION_DENIED`:
 

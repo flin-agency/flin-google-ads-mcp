@@ -6,7 +6,7 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 
 - Read-only by design
 - No create/update/delete campaign operations
-- Credentials via environment variables only
+- Refresh token can be generated and stored through MCP auth tools
 - Easy local testing with MCP Inspector
 
 ## Exposed MCP tools
@@ -21,6 +21,10 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `get_insights`
 - `get_keywords`
 - `get_search_terms`
+- `auth_status`
+- `get_auth_url`
+- `save_refresh_token_from_code`
+- `clear_auth_token`
 
 `get_ads` includes RSA content fields (headlines/descriptions/paths/final URLs) when available.
 
@@ -55,15 +59,30 @@ If neither parameter is passed, metrics stay aggregated across all conversion ac
 - `GOOGLE_ADS_DEVELOPER_TOKEN`
 - `GOOGLE_ADS_CLIENT_ID`
 - `GOOGLE_ADS_CLIENT_SECRET`
-- `GOOGLE_ADS_REFRESH_TOKEN`
 
 Optional:
 
+- `GOOGLE_ADS_REFRESH_TOKEN` (backwards-compatible override; normally generated with MCP auth tools)
+- `GOOGLE_ADS_AUTH_FILE` (defaults to `~/.config/flin-google-ads-mcp/auth.json`)
+- `GOOGLE_ADS_OAUTH_REDIRECT_URI` (defaults to `http://127.0.0.1:8080/`)
 - `GOOGLE_ADS_LOGIN_CUSTOMER_ID`
 - `GOOGLE_ADS_CUSTOMER_ID` (default customer if no `customer_id` argument is passed)
 - `GOOGLE_ADS_USE_PROTO_PLUS` (`true` by default)
 
 For MCC flows, you can also pass `login_customer_id` directly per tool call.
+
+## Auth flow
+
+The MCP client config no longer needs `GOOGLE_ADS_REFRESH_TOKEN`.
+
+1. Configure `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, and `GOOGLE_ADS_CLIENT_SECRET`.
+2. Run `auth_status`.
+3. If it reports `missing_refresh_token`, run `get_auth_url`.
+4. Open the returned Google URL, sign in, and copy either the `code` value or the full redirected URL.
+5. Run `save_refresh_token_from_code` with that value.
+6. Run `health_check`.
+
+The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json` by default and is never returned by MCP tools.
 
 ## Quick flow: "Avesco spend yesterday"
 
@@ -146,7 +165,6 @@ uvx flin-google-ads-mcp@latest
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
-        "GOOGLE_ADS_REFRESH_TOKEN": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
         "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "1234567890"
       }
@@ -172,7 +190,6 @@ uvx flin-google-ads-mcp@latest
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
-        "GOOGLE_ADS_REFRESH_TOKEN": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
         "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "0987654321"
       }
