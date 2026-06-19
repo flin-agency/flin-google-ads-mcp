@@ -36,10 +36,16 @@ Requires Node.js v25.8.1+ (for `npx` / Inspector CLI).
 export GOOGLE_ADS_DEVELOPER_TOKEN="..."
 export GOOGLE_ADS_CLIENT_ID="..."
 export GOOGLE_ADS_CLIENT_SECRET="..."
-export GOOGLE_ADS_REFRESH_TOKEN="..."
 export GOOGLE_ADS_CUSTOMER_ID="1234567890"
 export GOOGLE_ADS_LOGIN_CUSTOMER_ID="1234567890"
 ```
+
+If no refresh token has been stored yet, generate it through MCP:
+
+1. Call `auth_status`.
+2. Call `get_auth_url`.
+3. Open the returned URL and sign in.
+4. Pass the copied `code` value or full redirected URL to `save_refresh_token_from_code`.
 
 ### 2.2 List tools (CLI mode)
 
@@ -52,6 +58,10 @@ npx -y @modelcontextprotocol/inspector --cli \
 Expected:
 
 - `health_check`
+- `auth_status`
+- `get_auth_url`
+- `save_refresh_token_from_code`
+- `clear_auth_token`
 - `list_accessible_customers`
 - `get_customer_clients`
 - `find_customer_clients`
@@ -59,7 +69,9 @@ Expected:
 - `get_ad_groups`
 - `get_ads`
 - `get_insights`
+- `get_conversion_insights`
 - `get_keywords`
+- `get_search_terms`
 
 Note: `ListAccessibleCustomers` itself ignores `login-customer-id` by Google Ads API design.
 
@@ -193,6 +205,24 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-arg limit=10
 ```
 
+Conversion insights by day and conversion action:
+
+```bash
+npx -y @modelcontextprotocol/inspector --cli \
+  uv run flin-google-ads-mcp \
+  --method tools/call \
+  --tool-name get_conversion_insights \
+  --tool-arg customer_id=1234567890 \
+  --tool-arg login_customer_id=0987654321 \
+  --tool-arg level=campaign \
+  --tool-arg date_range=CUSTOM \
+  --tool-arg start_date=2026-03-01 \
+  --tool-arg end_date=2026-03-20 \
+  --tool-arg segment_by_date=true \
+  --tool-arg segment_by_conversion_action=true \
+  --tool-arg limit=50
+```
+
 Keywords:
 
 ```bash
@@ -221,7 +251,6 @@ Use this config:
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
-        "GOOGLE_ADS_REFRESH_TOKEN": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
         "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "1234567890"
       }
@@ -243,6 +272,11 @@ Then ask Claude:
 
 - One or more required env vars are missing.
 - Fix: compare with `.env.example`.
+
+`missing_auth` or `missing_refresh_token`:
+
+- The fixed Google Ads credentials are present, but no refresh token is configured or stored.
+- Fix: run `get_auth_url`, complete Google consent, then run `save_refresh_token_from_code`.
 
 `PERMISSION_DENIED`:
 

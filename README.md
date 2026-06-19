@@ -6,7 +6,7 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 
 - Read-only by design
 - No create/update/delete campaign operations
-- Credentials via environment variables only
+- Refresh token can be generated and stored through MCP auth tools
 - Easy local testing with MCP Inspector
 
 ## Exposed MCP tools
@@ -19,7 +19,14 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `get_ad_groups`
 - `get_ads`
 - `get_insights`
+- `get_conversion_insights`
 - `get_keywords`
+- `get_search_terms`
+- `get_change_events`
+- `auth_status`
+- `get_auth_url`
+- `save_refresh_token_from_code`
+- `clear_auth_token`
 
 `get_ads` includes RSA content fields (headlines/descriptions/paths/final URLs) when available.
 
@@ -30,6 +37,54 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `customer` (account-level metrics)
 - `account` (alias of `customer`)
 
+`get_search_terms` is backed by `search_term_view`, so it returns actual user search terms rather than configured keywords.
+
+`get_change_events` is backed by the Google Ads `change_event` resource. It returns recent account changes with user, client type, changed resource, operation, changed field paths, and old/new values where the API returns them. Google Ads requires a finite `change_event.change_date_time` window within the past 30 days and a `LIMIT`; pass `start_date` and `end_date` as `YYYY-MM-DD`.
+
+Example:
+
+```json
+{
+  "tool": "get_change_events",
+  "args": {
+    "customer_id": "2054139041",
+    "login_customer_id": "6050181535",
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-15",
+    "resource_type": "CAMPAIGN",
+    "limit": 50
+  }
+}
+```
+
+## Conversion insights
+
+Use `get_conversion_insights` when you need conversion-only reporting by day or conversion action, for example "which campaigns had lead conversions each day last week."
+
+It supports the same levels as `get_insights`:
+- `campaign`
+- `ad_group`
+- `ad`
+- `customer` (account-level metrics)
+- `account` (alias of `customer`)
+
+Optional segmentation:
+- `segment_by_date`
+- `segment_by_conversion_action`
+
+Optional conversion-action filters:
+
+- `conversion_action_id`
+- `conversion_action_name`
+
+Rules:
+- pass at most one of the two parameters
+- `conversion_action_id` must be a Google Ads resource name such as `customers/1234567890/conversionActions/555`
+- `conversion_action_name` matches `segments.conversion_action_name`
+- `get_conversion_insights` returns only `metrics.conversions` and `metrics.conversions_value`
+
+Use `get_insights` for general performance metrics such as impressions, clicks, CTR, CPC, and cost. Use `get_conversion_insights` for conversion-action or daily conversion breakdowns.
+
 ## Requirements
 
 1. Python 3.10+
@@ -38,15 +93,30 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `GOOGLE_ADS_DEVELOPER_TOKEN`
 - `GOOGLE_ADS_CLIENT_ID`
 - `GOOGLE_ADS_CLIENT_SECRET`
-- `GOOGLE_ADS_REFRESH_TOKEN`
 
 Optional:
 
+- `GOOGLE_ADS_REFRESH_TOKEN` (backwards-compatible override; normally generated with MCP auth tools)
+- `GOOGLE_ADS_AUTH_FILE` (defaults to `~/.config/flin-google-ads-mcp/auth.json`)
+- `GOOGLE_ADS_OAUTH_REDIRECT_URI` (defaults to `http://127.0.0.1:8080/`)
 - `GOOGLE_ADS_LOGIN_CUSTOMER_ID`
 - `GOOGLE_ADS_CUSTOMER_ID` (default customer if no `customer_id` argument is passed)
 - `GOOGLE_ADS_USE_PROTO_PLUS` (`true` by default)
 
 For MCC flows, you can also pass `login_customer_id` directly per tool call.
+
+## Auth flow
+
+The MCP client config no longer needs `GOOGLE_ADS_REFRESH_TOKEN`.
+
+1. Configure `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, and `GOOGLE_ADS_CLIENT_SECRET`.
+2. Run `auth_status`.
+3. If it reports `missing_refresh_token`, run `get_auth_url`.
+4. Open the returned Google URL, sign in, and copy either the `code` value or the full redirected URL.
+5. Run `save_refresh_token_from_code` with that value.
+6. Run `health_check`.
+
+The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json` by default and is never returned by MCP tools.
 
 ## Quick flow: "Avesco spend yesterday"
 
@@ -85,7 +155,7 @@ For MCC flows, you can also pass `login_customer_id` directly per tool call.
 
 ## Date ranges
 
-`get_insights` and `get_keywords` support:
+`get_insights`, `get_conversion_insights`, `get_keywords`, and `get_search_terms` support:
 
 - `TODAY`
 - `YESTERDAY`
@@ -129,7 +199,6 @@ uvx flin-google-ads-mcp@latest
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
-        "GOOGLE_ADS_REFRESH_TOKEN": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
         "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "1234567890"
       }
@@ -155,7 +224,6 @@ uvx flin-google-ads-mcp@latest
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
-        "GOOGLE_ADS_REFRESH_TOKEN": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
         "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "0987654321"
       }

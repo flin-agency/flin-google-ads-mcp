@@ -5,13 +5,15 @@ Use this guide when operating `flin-google-ads-mcp` from Claude or MCP Inspector
 ## Recommended call order
 
 1. Run `health_check`
-2. Run `list_accessible_customers`
-3. If working with an MCC, run `get_customer_clients` first
-4. If you need a specific client by name, run `find_customer_clients`
-5. For subaccounts, always pass:
+2. If it returns `missing_auth`, run `get_auth_url`, complete Google consent, then run `save_refresh_token_from_code`
+3. Run `auth_status`
+4. Run `list_accessible_customers`
+5. If working with an MCC, run `get_customer_clients` first
+6. If you need a specific client by name, run `find_customer_clients`
+7. For subaccounts, always pass:
 - `customer_id` (client account)
 - `login_customer_id` (manager account)
-6. Then run data tools:
+8. Then run data tools:
 - `get_campaigns`
 - `get_ads`
 - `get_keywords`
@@ -37,6 +39,10 @@ For metrics tools (`get_keywords`, `get_insights`), use either a preset `date_ra
 
 `missing_configuration`:
 - One or more required env vars are missing in MCP config.
+
+`missing_auth` / `missing_refresh_token`:
+- The refresh token is not in env and no local auth file exists yet.
+- Run `get_auth_url`, complete Google consent, then pass the copied code or full redirected URL to `save_refresh_token_from_code`.
 
 `USER_PERMISSION_DENIED`:
 - Check the `customer_id` and `login_customer_id` pairing.

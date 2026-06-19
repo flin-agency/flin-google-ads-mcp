@@ -1,14 +1,19 @@
 import pytest
 
 from flin_google_ads_mcp.google_ads import (
-    build_campaign_query,
     build_ads_query,
+    build_campaign_query,
+    build_change_events_query,
+    build_conversion_insights_query,
     build_customer_clients_query,
     build_insights_query,
     build_keywords_query,
+    build_search_terms_query,
     clamp_limit,
     normalize_customer_id,
+    normalize_conversion_action_name,
     normalize_customer_client_status,
+    normalize_change_event_resource_type,
     normalize_date_range,
     normalize_insight_level,
     normalize_status,
@@ -90,6 +95,11 @@ def test_insights_query_supports_custom_date_range() -> None:
     assert "segments.date BETWEEN '2026-02-01' AND '2026-02-28'" in query
 
 
+def test_normalize_conversion_action_name_rejects_blank_value() -> None:
+    with pytest.raises(ValueError):
+        normalize_conversion_action_name("   ")
+
+
 def test_insights_query_custom_date_range_requires_both_dates() -> None:
     with pytest.raises(ValueError):
         build_insights_query(
@@ -142,6 +152,123 @@ def test_keywords_query_supports_custom_date_range() -> None:
     assert "segments.date BETWEEN '2026-03-01' AND '2026-03-20'" in query
 
 
+def test_insights_query_supports_conversion_action_id_filter() -> None:
+    query = build_insights_query(
+        level="campaign",
+        date_range="LAST_7_DAYS",
+        conversion_action_id="customers/1234567890/conversionActions/555",
+        limit=20,
+    )
+
+    assert "segments.conversion_action = 'customers/1234567890/conversionActions/555'" in query
+
+
+def test_insights_query_supports_conversion_action_name_filter() -> None:
+    query = build_insights_query(
+        level="campaign",
+        date_range="LAST_7_DAYS",
+        conversion_action_name="event_generated_lead",
+        limit=20,
+    )
+
+    assert "segments.conversion_action_name = 'event_generated_lead'" in query
+
+
+def test_keywords_query_rejects_multiple_conversion_filters() -> None:
+    with pytest.raises(ValueError):
+        build_keywords_query(
+            status="ALL",
+            date_range="LAST_30_DAYS",
+            start_date=None,
+            end_date=None,
+            campaign_id=None,
+            ad_group_id=None,
+            conversion_action_id="customers/1234567890/conversionActions/555",
+            conversion_action_name="event_generated_lead",
+            limit=15,
+        )
+
+
+def test_search_terms_query_contains_search_term_view_and_conversion_filter() -> None:
+    query = build_search_terms_query(
+        status="ALL",
+        date_range="LAST_30_DAYS",
+        campaign_id="123-456-7890",
+        ad_group_id=None,
+        conversion_action_name="event_generated_lead",
+        limit=25,
+    )
+
+    assert "FROM search_term_view" in query
+    assert "search_term_view.search_term" in query
+    assert "search_term_view.status" in query
+    assert "segments.conversion_action_name = 'event_generated_lead'" in query
+    assert "campaign.id = 1234567890" in query
+
+
+def test_conversion_insights_query_supports_date_and_conversion_segments() -> None:
+    query = build_conversion_insights_query(
+        level="campaign",
+        date_range="CUSTOM",
+        start_date="2026-06-10",
+        end_date="2026-06-17",
+        campaign_id="123-456-7890",
+        ad_group_id=None,
+        conversion_action_id=None,
+        conversion_action_name=None,
+        segment_by_date=True,
+        segment_by_conversion_action=True,
+        limit=50,
+    )
+
+    assert "segments.date" in query
+    assert "segments.conversion_action" in query
+    assert "segments.conversion_action_name" in query
+    assert "campaign.id = 1234567890" in query
+    assert "metrics.conversions" in query
+    assert "metrics.conversions_value" in query
+    assert "metrics.impressions" not in query
+    assert "metrics.clicks" not in query
+    assert "segments.date ASC" in query
+
+
+def test_conversion_insights_query_supports_conversion_filter() -> None:
+    query = build_conversion_insights_query(
+        level="ad_group",
+        date_range="LAST_7_DAYS",
+        start_date=None,
+        end_date=None,
+        campaign_id=None,
+        ad_group_id="987-654-3210",
+        conversion_action_id=None,
+        conversion_action_name="event_generated_lead",
+        segment_by_date=False,
+        segment_by_conversion_action=False,
+        limit=25,
+    )
+
+    assert "FROM ad_group" in query
+    assert "ad_group.id = 9876543210" in query
+    assert "segments.conversion_action_name = 'event_generated_lead'" in query
+
+
+def test_conversion_insights_query_rejects_entity_filters_at_account_level() -> None:
+    with pytest.raises(ValueError):
+        build_conversion_insights_query(
+            level="account",
+            date_range="LAST_7_DAYS",
+            start_date=None,
+            end_date=None,
+            campaign_id="1234567890",
+            ad_group_id=None,
+            conversion_action_id=None,
+            conversion_action_name=None,
+            segment_by_date=False,
+            segment_by_conversion_action=False,
+            limit=25,
+        )
+
+
 def test_ads_query_includes_rsa_content_fields() -> None:
     query = build_ads_query(
         status="ALL",
@@ -152,3 +279,48 @@ def test_ads_query_includes_rsa_content_fields() -> None:
     assert "ad_group_ad.ad.responsive_search_ad.headlines" in query
     assert "ad_group_ad.ad.responsive_search_ad.descriptions" in query
     assert "ad_group_ad.ad.final_urls" in query
+
+
+def test_change_events_query_contains_required_filters_and_limit() -> None:
+    query = build_change_events_query(
+        start_date="2026-06-01",
+        end_date="2026-06-15",
+        resource_type=None,
+        user_email=None,
+        limit=25,
+    )
+
+    assert "FROM change_event" in query
+    assert "change_event.change_date_time >= '2026-06-01'" in query
+    assert "change_event.change_date_time <= '2026-06-15'" in query
+    assert "ORDER BY change_event.change_date_time DESC" in query
+    assert "LIMIT 25" in query
+
+
+def test_change_events_query_supports_resource_type_and_user_filters() -> None:
+    query = build_change_events_query(
+        start_date="2026-06-01",
+        end_date="2026-06-15",
+        resource_type="campaign",
+        user_email="user@example.com",
+        limit=10,
+    )
+
+    assert "change_event.change_resource_type = CAMPAIGN" in query
+    assert "change_event.user_email = 'user@example.com'" in query
+
+
+def test_change_events_query_rejects_bad_date_order() -> None:
+    with pytest.raises(ValueError):
+        build_change_events_query(
+            start_date="2026-06-15",
+            end_date="2026-06-01",
+            resource_type=None,
+            user_email=None,
+            limit=10,
+        )
+
+
+def test_normalize_change_event_resource_type_rejects_unknown_value() -> None:
+    with pytest.raises(ValueError):
+        normalize_change_event_resource_type("keyword")
