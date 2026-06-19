@@ -18,6 +18,8 @@ from .google_ads import (
     build_ad_group_query,
     build_ads_query,
     build_campaign_query,
+    build_change_events_query,
+    build_conversion_insights_query,
     build_customer_clients_query,
     build_insights_query,
     build_keywords_query,
@@ -65,6 +67,13 @@ def _metrics_payload(metrics: Any) -> dict[str, Any]:
     }
 
 
+def _conversion_metrics_payload(metrics: Any) -> dict[str, Any]:
+    return {
+        "conversions": to_float(metrics.conversions),
+        "conversions_value": to_float(metrics.conversions_value),
+    }
+
+
 def _customer_id_from_resource_name(resource_name: str) -> str:
     if resource_name.startswith("customers/"):
         return resource_name.split("/", 1)[1]
@@ -94,6 +103,54 @@ def _extract_ad_content(ad: Any, ad_type: str) -> dict[str, Any]:
         }
 
     return payload
+
+
+def _change_event_resource_attr(resource_type: str) -> str:
+    return resource_type.lower()
+
+
+def _changed_field_paths(changed_fields: Any) -> list[str]:
+    return [str(path) for path in getattr(changed_fields, "paths", [])]
+
+
+def _nested_attr(resource: Any, field_path: str) -> Any:
+    current = resource
+    for part in field_path.split("."):
+        if current is None or not hasattr(current, part):
+            return None
+        current = getattr(current, part)
+    return current
+
+
+def _change_value(value: Any) -> Any:
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, list | tuple):
+        return [_change_value(item) for item in value]
+    if hasattr(value, "name"):
+        return enum_name(value)
+    return str(value)
+
+
+def _changed_resource(changed_resource: Any, resource_type: str) -> Any:
+    attr = _change_event_resource_attr(resource_type)
+    return getattr(changed_resource, attr, None)
+
+
+def _change_event_changes(event: Any, resource_type: str) -> list[dict[str, Any]]:
+    old_resource = _changed_resource(event.old_resource, resource_type)
+    new_resource = _changed_resource(event.new_resource, resource_type)
+
+    changes = []
+    for field_path in _changed_field_paths(event.changed_fields):
+        changes.append(
+            {
+                "field": field_path,
+                "old": _change_value(_nested_attr(old_resource, field_path)),
+                "new": _change_value(_nested_attr(new_resource, field_path)),
+            }
+        )
+    return changes
 
 
 @mcp.tool()
@@ -569,6 +626,174 @@ def get_insights(
             "end_date": end_date,
             "conversion_action_id": conversion_action_id,
             "conversion_action_name": conversion_action_name,
+            "count": len(items),
+            "items": items,
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
+@mcp.tool()
+def get_conversion_insights(
+    customer_id: str | None = None,
+    level: str = "campaign",
+    date_range: str = "LAST_30_DAYS",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    campaign_id: str | None = None,
+    ad_group_id: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
+    segment_by_date: bool = False,
+    segment_by_conversion_action: bool = False,
+    limit: int = 100,
+    login_customer_id: str | None = None,
+) -> dict[str, Any]:
+    """Get conversion-only metrics with optional date and conversion-action segments."""
+    try:
+        settings = load_settings()
+        resolved_customer_id = resolve_customer_id(customer_id, settings)
+        normalized_level = normalize_insight_level(level)
+        query = build_conversion_insights_query(
+            level=normalized_level,
+            date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
+            campaign_id=campaign_id,
+            ad_group_id=ad_group_id,
+            conversion_action_id=conversion_action_id,
+            conversion_action_name=conversion_action_name,
+            segment_by_date=segment_by_date,
+            segment_by_conversion_action=segment_by_conversion_action,
+            limit=limit,
+        )
+        rows = run_search_query(
+            resolved_customer_id, query, login_customer_id=login_customer_id
+        )
+
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            item: dict[str, Any] = {}
+            if segment_by_date:
+                item["date"] = str(row.segments.date)
+            if segment_by_conversion_action:
+                item["conversion_action_id"] = str(row.segments.conversion_action)
+                item["conversion_action_name"] = str(
+                    row.segments.conversion_action_name
+                )
+
+            if normalized_level == "customer":
+                item.update(
+                    {
+                        "customer_id": str(row.customer.id),
+                        "customer_name": str(row.customer.descriptive_name),
+                        "currency_code": str(row.customer.currency_code),
+                    }
+                )
+            elif normalized_level == "campaign":
+                item.update(
+                    {
+                        "campaign_id": str(row.campaign.id),
+                        "campaign_name": str(row.campaign.name),
+                        "status": enum_name(row.campaign.status),
+                    }
+                )
+            elif normalized_level == "ad_group":
+                item.update(
+                    {
+                        "campaign_id": str(row.campaign.id),
+                        "campaign_name": str(row.campaign.name),
+                        "ad_group_id": str(row.ad_group.id),
+                        "ad_group_name": str(row.ad_group.name),
+                        "status": enum_name(row.ad_group.status),
+                    }
+                )
+            else:
+                item.update(
+                    {
+                        "campaign_id": str(row.campaign.id),
+                        "campaign_name": str(row.campaign.name),
+                        "ad_group_id": str(row.ad_group.id),
+                        "ad_group_name": str(row.ad_group.name),
+                        "ad_id": str(row.ad_group_ad.ad.id),
+                        "ad_name": str(row.ad_group_ad.ad.name),
+                        "status": enum_name(row.ad_group_ad.status),
+                    }
+                )
+
+            item["metrics"] = _conversion_metrics_payload(row.metrics)
+            items.append(item)
+
+        return {
+            "ok": True,
+            "customer_id": resolved_customer_id,
+            "level": level,
+            "date_range": date_range,
+            "start_date": start_date,
+            "end_date": end_date,
+            "campaign_id": campaign_id,
+            "ad_group_id": ad_group_id,
+            "conversion_action_id": conversion_action_id,
+            "conversion_action_name": conversion_action_name,
+            "segment_by_date": segment_by_date,
+            "segment_by_conversion_action": segment_by_conversion_action,
+            "count": len(items),
+            "items": items,
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
+@mcp.tool()
+def get_change_events(
+    customer_id: str | None = None,
+    start_date: str = "",
+    end_date: str = "",
+    resource_type: str | None = None,
+    user_email: str | None = None,
+    limit: int = 50,
+    login_customer_id: str | None = None,
+) -> dict[str, Any]:
+    """Get recent Google Ads account change events from the change_event resource."""
+    try:
+        settings = load_settings()
+        resolved_customer_id = resolve_customer_id(customer_id, settings)
+        query = build_change_events_query(
+            start_date=start_date,
+            end_date=end_date,
+            resource_type=resource_type,
+            user_email=user_email,
+            limit=limit,
+        )
+        rows = run_search_query(
+            resolved_customer_id, query, login_customer_id=login_customer_id
+        )
+
+        items = []
+        for row in rows:
+            event = row.change_event
+            change_resource_type = enum_name(event.change_resource_type)
+            items.append(
+                {
+                    "resource_name": str(event.resource_name),
+                    "change_date_time": str(event.change_date_time),
+                    "change_resource_name": str(event.change_resource_name),
+                    "user_email": str(event.user_email),
+                    "client_type": enum_name(event.client_type),
+                    "change_resource_type": change_resource_type,
+                    "operation": enum_name(event.resource_change_operation),
+                    "changed_fields": _changed_field_paths(event.changed_fields),
+                    "changes": _change_event_changes(event, change_resource_type),
+                }
+            )
+
+        return {
+            "ok": True,
+            "customer_id": resolved_customer_id,
+            "start_date": start_date,
+            "end_date": end_date,
+            "resource_type": resource_type,
+            "user_email": user_email,
             "count": len(items),
             "items": items,
         }

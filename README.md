@@ -19,8 +19,10 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `get_ad_groups`
 - `get_ads`
 - `get_insights`
+- `get_conversion_insights`
 - `get_keywords`
 - `get_search_terms`
+- `get_change_events`
 - `auth_status`
 - `get_auth_url`
 - `save_refresh_token_from_code`
@@ -37,9 +39,40 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 
 `get_search_terms` is backed by `search_term_view`, so it returns actual user search terms rather than configured keywords.
 
-## Conversion action filters
+`get_change_events` is backed by the Google Ads `change_event` resource. It returns recent account changes with user, client type, changed resource, operation, changed field paths, and old/new values where the API returns them. Google Ads requires a finite `change_event.change_date_time` window within the past 30 days and a `LIMIT`; pass `start_date` and `end_date` as `YYYY-MM-DD`.
 
-`get_insights`, `get_keywords`, and `get_search_terms` support optional conversion-action filters:
+Example:
+
+```json
+{
+  "tool": "get_change_events",
+  "args": {
+    "customer_id": "2054139041",
+    "login_customer_id": "6050181535",
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-15",
+    "resource_type": "CAMPAIGN",
+    "limit": 50
+  }
+}
+```
+
+## Conversion insights
+
+Use `get_conversion_insights` when you need conversion-only reporting by day or conversion action, for example "which campaigns had lead conversions each day last week."
+
+It supports the same levels as `get_insights`:
+- `campaign`
+- `ad_group`
+- `ad`
+- `customer` (account-level metrics)
+- `account` (alias of `customer`)
+
+Optional segmentation:
+- `segment_by_date`
+- `segment_by_conversion_action`
+
+Optional conversion-action filters:
 
 - `conversion_action_id`
 - `conversion_action_name`
@@ -48,8 +81,9 @@ Rules:
 - pass at most one of the two parameters
 - `conversion_action_id` must be a Google Ads resource name such as `customers/1234567890/conversionActions/555`
 - `conversion_action_name` matches `segments.conversion_action_name`
+- `get_conversion_insights` returns only `metrics.conversions` and `metrics.conversions_value`
 
-If neither parameter is passed, metrics stay aggregated across all conversion actions as before.
+Use `get_insights` for general performance metrics such as impressions, clicks, CTR, CPC, and cost. Use `get_conversion_insights` for conversion-action or daily conversion breakdowns.
 
 ## Requirements
 
@@ -121,7 +155,7 @@ The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json`
 
 ## Date ranges
 
-`get_insights`, `get_keywords`, and `get_search_terms` support:
+`get_insights`, `get_conversion_insights`, `get_keywords`, and `get_search_terms` support:
 
 - `TODAY`
 - `YESTERDAY`

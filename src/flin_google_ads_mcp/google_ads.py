@@ -65,6 +65,30 @@ ALLOWED_CUSTOMER_CLIENT_STATUS = {
     "UNSPECIFIED",
 }
 
+ALLOWED_CHANGE_EVENT_RESOURCE_TYPES = {
+    "AD",
+    "AD_GROUP",
+    "AD_GROUP_AD",
+    "AD_GROUP_ASSET",
+    "AD_GROUP_BID_MODIFIER",
+    "AD_GROUP_CRITERION",
+    "AD_GROUP_FEED",
+    "ASSET",
+    "ASSET_SET",
+    "ASSET_SET_ASSET",
+    "CAMPAIGN",
+    "CAMPAIGN_ASSET",
+    "CAMPAIGN_ASSET_SET",
+    "CAMPAIGN_BUDGET",
+    "CAMPAIGN_CRITERION",
+    "CAMPAIGN_FEED",
+    "CUSTOMER_ASSET",
+    "FEED",
+    "FEED_ITEM",
+    "UNKNOWN",
+    "UNSPECIFIED",
+}
+
 CONVERSION_ACTION_RESOURCE_NAME_RE = re.compile(
     r"^customers/\d+/conversionActions/\d+$"
 )
@@ -200,6 +224,25 @@ def normalize_customer_client_status(status: str) -> str:
     if normalized not in ALLOWED_CUSTOMER_CLIENT_STATUS:
         allowed = ", ".join(sorted(ALLOWED_CUSTOMER_CLIENT_STATUS))
         raise ValueError(f"Invalid status {status!r}. Allowed values: {allowed}.")
+    return normalized
+
+
+def normalize_change_event_resource_type(resource_type: str) -> str:
+    normalized = resource_type.strip().upper().replace("-", "_").replace(" ", "_")
+    if normalized not in ALLOWED_CHANGE_EVENT_RESOURCE_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_CHANGE_EVENT_RESOURCE_TYPES))
+        raise ValueError(
+            f"Invalid resource_type {resource_type!r}. Allowed values: {allowed}."
+        )
+    return normalized
+
+
+def normalize_user_email_filter(user_email: str) -> str:
+    normalized = user_email.strip()
+    if not normalized:
+        raise ValueError("user_email must not be empty.")
+    if "'" in normalized:
+        raise ValueError("user_email must not contain single quotes.")
     return normalized
 
 
@@ -481,6 +524,146 @@ def build_insights_query(
         "FROM ad_group_ad "
         f"WHERE {where_clause} "
         "ORDER BY metrics.impressions DESC "
+        f"LIMIT {normalized_limit}"
+    )
+
+
+def build_change_events_query(
+    *,
+    start_date: str,
+    end_date: str,
+    resource_type: str | None,
+    user_email: str | None,
+    limit: int,
+) -> str:
+    normalized_start = normalize_iso_date(start_date)
+    normalized_end = normalize_iso_date(end_date)
+    if normalized_start > normalized_end:
+        raise ValueError("start_date must be less than or equal to end_date.")
+
+    filters = [
+        f"change_event.change_date_time >= '{normalized_start}'",
+        f"change_event.change_date_time <= '{normalized_end}'",
+    ]
+    if resource_type:
+        filters.append(
+            "change_event.change_resource_type = "
+            f"{normalize_change_event_resource_type(resource_type)}"
+        )
+    if user_email:
+        filters.append(
+            f"change_event.user_email = '{normalize_user_email_filter(user_email)}'"
+        )
+
+    where_clause = " AND ".join(filters)
+    return (
+        "SELECT change_event.resource_name, change_event.change_date_time, "
+        "change_event.change_resource_name, change_event.user_email, "
+        "change_event.client_type, change_event.change_resource_type, "
+        "change_event.old_resource, change_event.new_resource, "
+        "change_event.resource_change_operation, change_event.changed_fields "
+        "FROM change_event "
+        f"WHERE {where_clause} "
+        "ORDER BY change_event.change_date_time DESC "
+        f"LIMIT {clamp_limit(limit, max_limit=10000)}"
+    )
+
+
+def build_conversion_insights_query(
+    *,
+    level: str,
+    date_range: str,
+    limit: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    campaign_id: str | None = None,
+    ad_group_id: str | None = None,
+    conversion_action_id: str | None = None,
+    conversion_action_name: str | None = None,
+    segment_by_date: bool = False,
+    segment_by_conversion_action: bool = False,
+) -> str:
+    normalized_level = normalize_insight_level(level)
+    normalized_limit = clamp_limit(limit, default=100)
+
+    if normalized_level == "customer" and (campaign_id or ad_group_id):
+        raise ValueError(
+            "campaign_id and ad_group_id cannot be used when level is account/customer."
+        )
+    if normalized_level == "campaign" and ad_group_id:
+        raise ValueError("ad_group_id cannot be used when level is campaign.")
+
+    select_fields: list[str] = []
+    order_fields: list[str] = []
+    if segment_by_date:
+        select_fields.append("segments.date")
+        order_fields.append("segments.date ASC")
+    if segment_by_conversion_action:
+        select_fields.extend(
+            ["segments.conversion_action", "segments.conversion_action_name"]
+        )
+
+    if normalized_level == "customer":
+        select_fields.extend(
+            ["customer.id", "customer.descriptive_name", "customer.currency_code"]
+        )
+        from_resource = "customer"
+    elif normalized_level == "campaign":
+        select_fields.extend(["campaign.id", "campaign.name", "campaign.status"])
+        from_resource = "campaign"
+    elif normalized_level == "ad_group":
+        select_fields.extend(
+            [
+                "campaign.id",
+                "campaign.name",
+                "ad_group.id",
+                "ad_group.name",
+                "ad_group.status",
+            ]
+        )
+        from_resource = "ad_group"
+    else:
+        select_fields.extend(
+            [
+                "campaign.id",
+                "campaign.name",
+                "ad_group.id",
+                "ad_group.name",
+                "ad_group_ad.ad.id",
+                "ad_group_ad.ad.name",
+                "ad_group_ad.status",
+            ]
+        )
+        from_resource = "ad_group_ad"
+
+    select_fields.extend(["metrics.conversions", "metrics.conversions_value"])
+
+    filters = [
+        build_segments_date_filter(
+            date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    ]
+    conversion_filter = build_conversion_action_filter(
+        conversion_action_id=conversion_action_id,
+        conversion_action_name=conversion_action_name,
+    )
+    if conversion_filter:
+        filters.append(conversion_filter)
+    if campaign_id:
+        filters.append(f"campaign.id = {normalize_entity_id(campaign_id)}")
+    if ad_group_id:
+        filters.append(f"ad_group.id = {normalize_entity_id(ad_group_id)}")
+
+    where_clause = " AND ".join(filters)
+    order_fields.append("metrics.conversions DESC")
+    order_clause = ", ".join(order_fields)
+    return (
+        f"SELECT {', '.join(select_fields)} "
+        f"FROM {from_resource} "
+        f"WHERE {where_clause} "
+        f"ORDER BY {order_clause} "
         f"LIMIT {normalized_limit}"
     )
 

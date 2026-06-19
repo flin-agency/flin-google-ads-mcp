@@ -76,6 +76,48 @@ def _search_term_row() -> SimpleNamespace:
     )
 
 
+def _conversion_insights_row() -> SimpleNamespace:
+    return SimpleNamespace(
+        segments=SimpleNamespace(
+            date="2026-06-17",
+            conversion_action="customers/2054139041/conversionActions/555",
+            conversion_action_name="event_generated_lead",
+        ),
+        campaign=SimpleNamespace(id="101", name="Brand Search", status=_EnumName("ENABLED")),
+        metrics=SimpleNamespace(
+            conversions=2,
+            conversions_value=8000,
+        ),
+    )
+
+
+def _change_event_row() -> SimpleNamespace:
+    return SimpleNamespace(
+        change_event=SimpleNamespace(
+            resource_name="customers/2054139041/changeEvents/1~2~3",
+            change_date_time="2026-06-15 12:34:56.000000",
+            change_resource_name="customers/2054139041/campaigns/101",
+            user_email="user@example.com",
+            client_type=_EnumName("GOOGLE_ADS_WEB_CLIENT"),
+            change_resource_type=_EnumName("CAMPAIGN"),
+            resource_change_operation=_EnumName("UPDATE"),
+            changed_fields=SimpleNamespace(paths=["status", "name"]),
+            old_resource=SimpleNamespace(
+                campaign=SimpleNamespace(
+                    status=_EnumName("PAUSED"),
+                    name="Old Campaign",
+                )
+            ),
+            new_resource=SimpleNamespace(
+                campaign=SimpleNamespace(
+                    status=_EnumName("ENABLED"),
+                    name="New Campaign",
+                )
+            ),
+        )
+    )
+
+
 def _settings(refresh_token: str | None = None) -> Settings:
     return Settings(
         developer_token="dev",
@@ -277,3 +319,84 @@ def test_get_search_terms_returns_search_term_rows(monkeypatch) -> None:
     assert row["search_term"] == "flin google ads"
     assert row["status"] == "ADDED"
     assert row["metrics"]["conversions"] == 4.0
+
+
+def test_get_change_events_returns_change_history_rows(monkeypatch) -> None:
+    monkeypatch.setattr(server, "load_settings", lambda: object())
+    monkeypatch.setattr(
+        server, "resolve_customer_id", lambda customer_id, settings: customer_id
+    )
+    monkeypatch.setattr(server, "build_change_events_query", lambda **kwargs: "SELECT ...")
+    monkeypatch.setattr(server, "run_search_query", lambda *args, **kwargs: [_change_event_row()])
+
+    result = server.get_change_events(
+        customer_id="2054139041",
+        start_date="2026-06-01",
+        end_date="2026-06-15",
+        resource_type="campaign",
+        limit=10,
+    )
+
+    assert result["ok"] is True
+    assert result["customer_id"] == "2054139041"
+    assert result["count"] == 1
+    assert result["start_date"] == "2026-06-01"
+    assert result["end_date"] == "2026-06-15"
+    assert result["resource_type"] == "campaign"
+
+    row = result["items"][0]
+    assert row["resource_name"] == "customers/2054139041/changeEvents/1~2~3"
+    assert row["change_date_time"] == "2026-06-15 12:34:56.000000"
+    assert row["change_resource_name"] == "customers/2054139041/campaigns/101"
+    assert row["user_email"] == "user@example.com"
+    assert row["client_type"] == "GOOGLE_ADS_WEB_CLIENT"
+    assert row["change_resource_type"] == "CAMPAIGN"
+    assert row["operation"] == "UPDATE"
+    assert row["changed_fields"] == ["status", "name"]
+    assert row["changes"] == [
+        {"field": "status", "old": "PAUSED", "new": "ENABLED"},
+        {"field": "name", "old": "Old Campaign", "new": "New Campaign"},
+    ]
+
+
+def test_get_conversion_insights_returns_segmented_conversion_rows(monkeypatch) -> None:
+    monkeypatch.setattr(server, "load_settings", lambda: object())
+    monkeypatch.setattr(
+        server, "resolve_customer_id", lambda customer_id, settings: customer_id
+    )
+    monkeypatch.setattr(
+        server, "build_conversion_insights_query", lambda **kwargs: "SELECT ..."
+    )
+    monkeypatch.setattr(
+        server, "run_search_query", lambda *args, **kwargs: [_conversion_insights_row()]
+    )
+
+    result = server.get_conversion_insights(
+        customer_id="2054139041",
+        level="campaign",
+        date_range="CUSTOM",
+        start_date="2026-06-10",
+        end_date="2026-06-17",
+        campaign_id="101",
+        segment_by_date=True,
+        segment_by_conversion_action=True,
+        limit=10,
+    )
+
+    assert result["ok"] is True
+    assert result["level"] == "campaign"
+    assert result["segment_by_date"] is True
+    assert result["segment_by_conversion_action"] is True
+    assert result["count"] == 1
+
+    row = result["items"][0]
+    assert row["date"] == "2026-06-17"
+    assert row["conversion_action_id"] == "customers/2054139041/conversionActions/555"
+    assert row["conversion_action_name"] == "event_generated_lead"
+    assert row["campaign_id"] == "101"
+    assert row["campaign_name"] == "Brand Search"
+    assert row["status"] == "ENABLED"
+    assert row["metrics"] == {
+        "conversions": 2.0,
+        "conversions_value": 8000.0,
+    }

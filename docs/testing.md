@@ -69,7 +69,9 @@ Expected:
 - `get_ad_groups`
 - `get_ads`
 - `get_insights`
+- `get_conversion_insights`
 - `get_keywords`
+- `get_search_terms`
 
 Note: `ListAccessibleCustomers` itself ignores `login-customer-id` by Google Ads API design.
 
@@ -201,6 +203,24 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-arg start_date=2026-03-01 \
   --tool-arg end_date=2026-03-20 \
   --tool-arg limit=10
+```
+
+Conversion insights by day and conversion action:
+
+```bash
+npx -y @modelcontextprotocol/inspector --cli \
+  uv run flin-google-ads-mcp \
+  --method tools/call \
+  --tool-name get_conversion_insights \
+  --tool-arg customer_id=1234567890 \
+  --tool-arg login_customer_id=0987654321 \
+  --tool-arg level=campaign \
+  --tool-arg date_range=CUSTOM \
+  --tool-arg start_date=2026-03-01 \
+  --tool-arg end_date=2026-03-20 \
+  --tool-arg segment_by_date=true \
+  --tool-arg segment_by_conversion_action=true \
+  --tool-arg limit=50
 ```
 
 Keywords:
