@@ -58,6 +58,7 @@ def _insights_row() -> SimpleNamespace:
 
 def _search_term_row() -> SimpleNamespace:
     return SimpleNamespace(
+        segments=SimpleNamespace(date="2026-06-17"),
         campaign=SimpleNamespace(id="101", name="Brand Search"),
         ad_group=SimpleNamespace(id="202", name="Brand Core"),
         search_term_view=SimpleNamespace(
@@ -303,6 +304,7 @@ def test_get_search_terms_returns_search_term_rows(monkeypatch) -> None:
         customer_id="2054139041",
         date_range="LAST_30_DAYS",
         conversion_action_id="customers/2054139041/conversionActions/555",
+        segment_by_date=True,
         limit=10,
     )
 
@@ -317,6 +319,7 @@ def test_get_search_terms_returns_search_term_rows(monkeypatch) -> None:
     assert row["ad_group_id"] == "202"
     assert row["ad_group_name"] == "Brand Core"
     assert row["search_term"] == "flin google ads"
+    assert row["date"] == "2026-06-17"
     assert row["status"] == "ADDED"
     assert row["metrics"]["conversions"] == 4.0
 

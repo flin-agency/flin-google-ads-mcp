@@ -17,13 +17,16 @@ Use this guide when operating `flin-google-ads-mcp` from Claude or MCP Inspector
 - `get_campaigns`
 - `get_ads`
 - `get_keywords`
+- `get_search_terms`
 - `get_insights`
 
 For account-level spend totals, use `get_insights` with:
 - `level=account` (or `level=customer`)
 - `date_range=YESTERDAY` (or another supported range)
 
-For metrics tools (`get_keywords`, `get_insights`), use either a preset `date_range` or `date_range=CUSTOM` with `start_date` + `end_date`.
+For metrics tools (`get_keywords`, `get_search_terms`, `get_insights`), use either a preset `date_range` or `date_range=CUSTOM` with `start_date` + `end_date`.
+
+For daily search-term attribution, call `get_search_terms` with `segment_by_date=true`; each row then includes the actual `date` returned by Google Ads for that search term and metric segment.
 
 ## MCC and subaccount rules
 

@@ -875,6 +875,7 @@ def get_search_terms(
     end_date: str | None = None,
     conversion_action_id: str | None = None,
     conversion_action_name: str | None = None,
+    segment_by_date: bool = False,
     limit: int = 100,
     login_customer_id: str | None = None,
 ) -> dict[str, Any]:
@@ -891,14 +892,16 @@ def get_search_terms(
             ad_group_id=ad_group_id,
             conversion_action_id=conversion_action_id,
             conversion_action_name=conversion_action_name,
+            segment_by_date=segment_by_date,
             limit=limit,
         )
         rows = run_search_query(
             resolved_customer_id, query, login_customer_id=login_customer_id
         )
 
-        items = [
-            {
+        items = []
+        for row in rows:
+            item = {
                 "campaign_id": str(row.campaign.id),
                 "campaign_name": str(row.campaign.name),
                 "ad_group_id": str(row.ad_group.id),
@@ -907,8 +910,9 @@ def get_search_terms(
                 "status": enum_name(row.search_term_view.status),
                 "metrics": _metrics_payload(row.metrics),
             }
-            for row in rows
-        ]
+            if segment_by_date:
+                item["date"] = str(row.segments.date)
+            items.append(item)
 
         return {
             "ok": True,
@@ -918,6 +922,7 @@ def get_search_terms(
             "end_date": end_date,
             "conversion_action_id": conversion_action_id,
             "conversion_action_name": conversion_action_name,
+            "segment_by_date": segment_by_date,
             "count": len(items),
             "items": items,
         }

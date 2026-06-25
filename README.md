@@ -37,7 +37,16 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 - `customer` (account-level metrics)
 - `account` (alias of `customer`)
 
-`get_search_terms` is backed by `search_term_view`, so it returns actual user search terms rather than configured keywords.
+`get_search_terms` is backed by `search_term_view`, so it returns actual user search terms rather than configured keywords. Pass `segment_by_date=true` when you need daily search-term rows with a `date` field instead of one aggregate row per search term for the requested range.
+
+Search-term conversion filters:
+
+- `conversion_action_id`
+- `conversion_action_name`
+
+Search-term optional segmentation:
+
+- `segment_by_date`
 
 `get_change_events` is backed by the Google Ads `change_event` resource. It returns recent account changes with user, client type, changed resource, operation, changed field paths, and old/new values where the API returns them. Google Ads requires a finite `change_event.change_date_time` window within the past 30 days and a `LIMIT`; pass `start_date` and `end_date` as `YYYY-MM-DD`.
 

@@ -770,6 +770,7 @@ def build_search_terms_query(
     end_date: str | None = None,
     conversion_action_id: str | None = None,
     conversion_action_name: str | None = None,
+    segment_by_date: bool = False,
 ) -> str:
     normalized_status = normalize_search_term_status(status)
     date_filter = build_segments_date_filter(
@@ -794,13 +795,31 @@ def build_search_terms_query(
         filters.append(conversion_filter)
 
     where_clause = " AND ".join(filters)
+    select_fields = [
+        "campaign.id",
+        "campaign.name",
+        "ad_group.id",
+        "ad_group.name",
+        "search_term_view.search_term",
+        "search_term_view.status",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.ctr",
+        "metrics.average_cpc",
+        "metrics.cost_micros",
+        "metrics.conversions",
+        "metrics.conversions_value",
+    ]
+    order_fields = []
+    if segment_by_date:
+        select_fields.insert(0, "segments.date")
+        order_fields.append("segments.date ASC")
+    order_fields.append("metrics.impressions DESC")
+
     return (
-        "SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, "
-        "search_term_view.search_term, search_term_view.status, "
-        "metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, "
-        "metrics.cost_micros, metrics.conversions, metrics.conversions_value "
+        f"SELECT {', '.join(select_fields)} "
         "FROM search_term_view "
         f"WHERE {where_clause} "
-        "ORDER BY metrics.impressions DESC "
+        f"ORDER BY {', '.join(order_fields)} "
         f"LIMIT {clamp_limit(limit, default=100)}"
     )

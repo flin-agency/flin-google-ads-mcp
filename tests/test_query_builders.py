@@ -206,6 +206,23 @@ def test_search_terms_query_contains_search_term_view_and_conversion_filter() ->
     assert "campaign.id = 1234567890" in query
 
 
+def test_search_terms_query_can_segment_by_date() -> None:
+    query = build_search_terms_query(
+        status="ALL",
+        date_range="CUSTOM",
+        start_date="2026-06-10",
+        end_date="2026-06-17",
+        campaign_id="123-456-7890",
+        ad_group_id=None,
+        segment_by_date=True,
+        limit=25,
+    )
+
+    assert query.startswith("SELECT segments.date, ")
+    assert "segments.date BETWEEN '2026-06-10' AND '2026-06-17'" in query
+    assert "segments.date ASC" in query
+
+
 def test_conversion_insights_query_supports_date_and_conversion_segments() -> None:
     query = build_conversion_insights_query(
         level="campaign",

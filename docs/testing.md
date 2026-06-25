@@ -237,6 +237,22 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-arg limit=25
 ```
 
+Search terms by day:
+
+```bash
+npx -y @modelcontextprotocol/inspector --cli \
+  uv run flin-google-ads-mcp \
+  --method tools/call \
+  --tool-name get_search_terms \
+  --tool-arg customer_id=1234567890 \
+  --tool-arg login_customer_id=0987654321 \
+  --tool-arg date_range=CUSTOM \
+  --tool-arg start_date=2026-03-01 \
+  --tool-arg end_date=2026-03-20 \
+  --tool-arg segment_by_date=true \
+  --tool-arg limit=25
+```
+
 ## 3) End-to-end test in Claude (uvx)
 
 Use this config:
