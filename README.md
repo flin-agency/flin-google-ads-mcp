@@ -2,6 +2,12 @@
 
 Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 
+## Install in Claude Desktop on Mac
+
+Download the `.mcpb` file from the [latest GitHub release](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest). See the [Mac installation guide](docs/claude-desktop-mac.md) for setup, credentials and verification. The bundle requires a current Claude Desktop with MCPB UV runtime support and internet access on first launch.
+
+See [SECURITY.md](SECURITY.md) for the security model and [review results](docs/security-review.md).
+
 ## Why this server
 
 - Read-only by design
@@ -121,8 +127,8 @@ The MCP client config no longer needs `GOOGLE_ADS_REFRESH_TOKEN`.
 1. Configure `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, and `GOOGLE_ADS_CLIENT_SECRET`.
 2. Run `auth_status`.
 3. If it reports `missing_refresh_token`, run `get_auth_url`.
-4. Open the returned Google URL, sign in, and copy either the `code` value or the full redirected URL.
-5. Run `save_refresh_token_from_code` with that value.
+4. Open the returned Google URL, sign in, and copy the full redirected URL. A localhost connection error is expected; no callback listener is started.
+5. Within 10 minutes, run `save_refresh_token_from_code` with that value in the same server session. The flow uses PKCE and validates state for full URLs.
 6. Run `health_check`.
 
 The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json` by default and is never returned by MCP tools.
@@ -284,7 +290,7 @@ git tag v0.1.0
 git push origin main --tags
 ```
 
-The `Release` workflow builds, tests, and publishes to PyPI using OIDC (no PyPI API token in GitHub secrets).
+The `Release` workflow builds, tests and publishes the Mac MCPB and Python packages to a GitHub release. PyPI publishing is a separate explicit workflow-dispatch option using OIDC. See [the release checklist](docs/release.md).
 
 ## CI
 

@@ -8,4 +8,9 @@ __pycache__/
 .env
 dist/
 build/
-uv.lock
+
+.env.*
+!.env.example
+*.mcpb
+.auth-*
+auth.json

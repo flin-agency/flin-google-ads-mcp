@@ -95,7 +95,9 @@ CONVERSION_ACTION_RESOURCE_NAME_RE = re.compile(
 
 
 def normalize_customer_id(raw_customer_id: str) -> str:
-    cleaned = re.sub(r"\D", "", raw_customer_id)
+    if not re.fullmatch(r"[0-9 -]+", raw_customer_id):
+        raise ValueError("customer_id must contain only ASCII digits, spaces or hyphens.")
+    cleaned = re.sub(r"[ -]", "", raw_customer_id)
     if not cleaned:
         raise ValueError("customer_id must contain at least one digit.")
     if len(cleaned) != 10:
@@ -106,10 +108,9 @@ def normalize_customer_id(raw_customer_id: str) -> str:
 
 
 def normalize_entity_id(raw_entity_id: str) -> str:
-    cleaned = re.sub(r"\D", "", raw_entity_id)
-    if not cleaned:
-        raise ValueError("Entity ID must contain at least one digit.")
-    return cleaned
+    if not re.fullmatch(r"[0-9]+(?:[ -][0-9]+)*", raw_entity_id):
+        raise ValueError("Entity ID must contain ASCII digits with optional spaces or hyphens.")
+    return re.sub(r"[ -]", "", raw_entity_id)
 
 
 def resolve_customer_id(customer_id: str | None, settings: Settings) -> str:
@@ -213,8 +214,8 @@ def normalize_conversion_action_name(conversion_action_name: str) -> str:
     normalized = conversion_action_name.strip()
     if not normalized:
         raise ValueError("conversion_action_name must not be empty.")
-    if "'" in normalized:
-        raise ValueError("conversion_action_name must not contain single quotes.")
+    if any(c in normalized for c in ("'", "\\", "\n", "\r", "\x00")):
+        raise ValueError("conversion_action_name contains unsupported query characters.")
     return normalized
 
 
@@ -241,8 +242,8 @@ def normalize_user_email_filter(user_email: str) -> str:
     normalized = user_email.strip()
     if not normalized:
         raise ValueError("user_email must not be empty.")
-    if "'" in normalized:
-        raise ValueError("user_email must not contain single quotes.")
+    if any(c in normalized for c in ("'", "\\", "\n", "\r", "\x00")):
+        raise ValueError("user_email contains unsupported query characters.")
     return normalized
 
 
@@ -355,9 +356,13 @@ def micros_to_currency(value: Any) -> float:
 
 
 def format_google_ads_error(exc: Exception) -> dict[str, Any]:
-    # GoogleAdsException import is intentionally dynamic to keep module import cheap for tests.
+    # Never forward SDK/HTTP exception bodies, which can contain credentials.
+    if isinstance(exc, ConfigurationError):
+        return {"type": "ConfigurationError", "message": str(exc)}
+    if isinstance(exc, ValueError):
+        return {"type": "ValueError", "message": "Invalid input. Check IDs, dates, filters and configuration."}
     if exc.__class__.__name__ != "GoogleAdsException":
-        return {"type": exc.__class__.__name__, "message": str(exc)}
+        return {"type": exc.__class__.__name__, "message": "Google Ads request failed. Check authentication and account access."}
 
     request_id = getattr(exc, "request_id", None)
     failure = getattr(exc, "failure", None)
@@ -368,7 +373,7 @@ def format_google_ads_error(exc: Exception) -> dict[str, Any]:
             error_code = getattr(failure_error, "error_code", None)
             errors.append(
                 {
-                    "message": getattr(failure_error, "message", "Unknown API error"),
+                    "message": "Google Ads API rejected the request.",
                     "code": str(error_code) if error_code is not None else "UNKNOWN",
                 }
             )
@@ -377,7 +382,7 @@ def format_google_ads_error(exc: Exception) -> dict[str, Any]:
         "type": exc.__class__.__name__,
         "request_id": request_id,
         "errors": errors,
-        "message": str(exc),
+        "message": "Google Ads API rejected the request. Use the error code and request ID for diagnosis.",
     }
 
 

@@ -14,4 +14,27 @@ def test_mcp_dependency_keeps_fastmcp_compatible_major_version() -> None:
         if dependency.startswith("mcp")
     )
 
-    assert mcp_requirement == "mcp>=1.6.0,<2"
+    assert mcp_requirement == "mcp>=1.30.0,<2"
+
+
+def test_bundle_is_reproducible_and_contains_only_allowed_files(tmp_path):
+    import hashlib
+    import importlib.util
+    import json
+    import zipfile
+    spec = importlib.util.spec_from_file_location("build_mcpb", ROOT / "scripts/build_mcpb.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundle = module.build(output_dir=tmp_path)
+    first = bundle.read_bytes()
+    assert module.build(output_dir=tmp_path).read_bytes() == first
+    assert bundle.with_suffix(".mcpb.sha256").read_text().startswith(hashlib.sha256(first).hexdigest())
+    with zipfile.ZipFile(bundle) as archive:
+        assert set(archive.namelist()) == set(module.FILES)
+        assert archive.testzip() is None
+        manifest = json.loads(archive.read("manifest.json"))
+        assert "--locked" in manifest["server"]["mcp_config"]["args"]
+        for name in ("developer_token", "client_secret", "refresh_token"):
+            assert manifest["user_config"][name]["sensitive"] is True
+        assert "desktop/server.py" in archive.namelist()
+        assert "uv.lock" in archive.namelist()

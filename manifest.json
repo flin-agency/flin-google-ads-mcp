@@ -1,0 +1,103 @@
+{
+  "manifest_version": "0.4",
+  "name": "flin-google-ads-mcp",
+  "display_name": "flin Google Ads",
+  "version": "0.1.9",
+  "description": "Read-only Google Ads reporting for Claude Desktop on macOS.",
+  "long_description": "Read campaigns, ads, search terms, conversions and recent changes. Google Ads data is never modified. Authentication tools can store or delete a local refresh token. Requires your own Google Ads API credentials. Python and locked dependencies are downloaded on first launch by the UV runtime; internet access is required.",
+  "author": {
+    "name": "flin.agency",
+    "url": "https://github.com/flin-agency"
+  },
+  "homepage": "https://github.com/flin-agency/flin-google-ads-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flin-agency/flin-google-ads-mcp.git"
+  },
+  "support": "https://github.com/flin-agency/flin-google-ads-mcp/issues",
+  "license": "MIT",
+  "privacy_policies": [
+    "https://policies.google.com/privacy"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin"
+    ],
+    "runtimes": {
+      "python": ">=3.12 <3.13"
+    }
+  },
+  "server": {
+    "type": "uv",
+    "entry_point": "desktop/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--locked",
+        "--no-dev",
+        "--no-editable",
+        "--python",
+        "3.12",
+        "--directory",
+        "${__dirname}",
+        "desktop/server.py"
+      ],
+      "env": {
+        "GOOGLE_ADS_DEVELOPER_TOKEN": "${user_config.developer_token}",
+        "GOOGLE_ADS_CLIENT_ID": "${user_config.client_id}",
+        "GOOGLE_ADS_CLIENT_SECRET": "${user_config.client_secret}",
+        "GOOGLE_ADS_REFRESH_TOKEN": "${user_config.refresh_token}",
+        "GOOGLE_ADS_CUSTOMER_ID": "${user_config.customer_id}",
+        "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "${user_config.login_customer_id}"
+      }
+    }
+  },
+  "user_config": {
+    "developer_token": {
+      "type": "string",
+      "title": "Developer token",
+      "description": "Google Ads API developer token.",
+      "required": true,
+      "sensitive": true
+    },
+    "client_id": {
+      "type": "string",
+      "title": "OAuth client ID",
+      "description": "Google OAuth Desktop app client ID.",
+      "required": true,
+      "sensitive": false
+    },
+    "client_secret": {
+      "type": "string",
+      "title": "OAuth client secret",
+      "description": "Google OAuth Desktop app client secret.",
+      "required": true,
+      "sensitive": true
+    },
+    "refresh_token": {
+      "type": "string",
+      "title": "Refresh token (optional)",
+      "description": "Optional existing refresh token. Otherwise use get_auth_url after installation.",
+      "required": false,
+      "sensitive": true,
+      "default": ""
+    },
+    "customer_id": {
+      "type": "string",
+      "title": "Default customer ID (optional)",
+      "description": "10-digit Google Ads customer ID.",
+      "required": false,
+      "sensitive": false,
+      "default": ""
+    },
+    "login_customer_id": {
+      "type": "string",
+      "title": "Manager customer ID (optional)",
+      "description": "10-digit manager (MCC) customer ID.",
+      "required": false,
+      "sensitive": false,
+      "default": ""
+    }
+  }
+}

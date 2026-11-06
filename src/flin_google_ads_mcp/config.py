@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Mapping
 import os
@@ -28,21 +28,21 @@ def _get_bool(name: str, default: bool) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise ConfigurationError(
-        f"Invalid boolean value for {name}: {raw!r}. Use true/false."
+        f"Invalid boolean value for {name}. Use true/false."
     )
 
 
 def missing_required_env_vars(env: Mapping[str, str] | None = None) -> list[str]:
     source = os.environ if env is None else env
-    return [key for key in REQUIRED_ENV_VARS if not source.get(key)]
+    return [key for key in REQUIRED_ENV_VARS if not source.get(key, "").strip()]
 
 
 @dataclass(frozen=True)
 class Settings:
-    developer_token: str
+    developer_token: str = field(repr=False)
     client_id: str
-    client_secret: str
-    refresh_token: str | None
+    client_secret: str = field(repr=False)
+    refresh_token: str | None = field(repr=False)
     login_customer_id: str | None
     default_customer_id: str | None
     use_proto_plus: bool

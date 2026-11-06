@@ -131,7 +131,12 @@ def test_exchange_code_for_refresh_token_posts_oauth_form(monkeypatch) -> None:
 
     monkeypatch.setattr(auth, "urlopen", fake_urlopen)
 
+    auth_url = auth.build_auth_url(_settings())
     refresh_token = auth.exchange_code_for_refresh_token(_settings(), "new-code")
+    verifier = captured["data"].pop("code_verifier")[0]
+    import base64, hashlib
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    assert parse_qs(urlparse(auth_url).query)["code_challenge"] == [challenge]
 
     assert refresh_token == "new-refresh"
     assert captured["url"] == "https://oauth2.googleapis.com/token"

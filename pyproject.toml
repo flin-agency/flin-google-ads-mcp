@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flin-google-ads-mcp"
-version = "0.1.8"
+version = "0.1.9"
 description = "Read-only MCP server for Google Ads entities and reporting."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,8 +14,8 @@ authors = [
 ]
 keywords = ["mcp", "google-ads", "model-context-protocol", "claude"]
 dependencies = [
-  "mcp>=1.6.0,<2",
-  "google-ads>=29.2.0",
+  "mcp>=1.30.0,<2",
+  "google-ads>=35.0.0,<36",
 ]
 
 [project.optional-dependencies]
