@@ -20,8 +20,8 @@ Reviewed on 2026-11-06. Scope: application source, OAuth flow, query constructio
 - The extracted MCPB was installed into a fresh environment on Apple Silicon macOS using Python 3.12. Its manifest command completed the MCP initialization handshake, advertised all 16 tools with appropriate annotations, and returned an expected missing-configuration response without using real credentials.
 - Official `@anthropic-ai/mcpb` 2.1.2 manifest validation passed.
 - `pip-audit` 2.10.1 reported no known vulnerabilities for the locked runtime requirements under Python 3.12 and 3.13 at review time. This is database coverage for those resolutions, not a guarantee about all platforms or future advisories.
-- Python wheel and source distribution build and source compilation passed.
-- Secret scanning of the working source produced only reviewed test/example placeholders. No personal credentials are included in the MCPB allowlist.
+- Python wheel and source distribution build, source compilation and actionlint workflow validation passed.
+- Secret scanning of the working source and 96 text blobs from reachable Git history produced only reviewed test/example placeholders. No personal credentials are included in the MCPB allowlist.
 - Bandit findings were manually reviewed: B105 matched the public token endpoint and status literals; B310 uses the constant HTTPS Google token endpoint; B608 flags GAQL string construction, whose interpolated values pass the reviewed validators. These findings are documented, not represented as a clean automated Bandit scan.
 
 ## Remaining boundaries
