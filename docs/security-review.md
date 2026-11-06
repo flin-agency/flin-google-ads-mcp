@@ -1,3 +1,14 @@
+# Update review — 0.1.10
+
+The user's requested distribution model supersedes the frozen-runtime and optional-PyPI behavior described in the historical 0.1.9 review below.
+
+- Each version-tag release builds/tests the Python distributions and MCPB, automatically publishes to PyPI via OIDC, checks the published hashes, starts the unmodified MCPB against PyPI, and only then publishes GitHub assets.
+- The MCPB contains a small loader with a separate project manifest. On every server start, UV refreshes and upgrades `flin-google-ads-mcp` from PyPI to the highest stable compatible version. Running sessions are not hot-reloaded.
+- A regression test installs a server into an extension directory, introduces a newer package and a prerelease, and verifies the next start loads the stable update without changing the launcher or its configuration.
+- `health_check.server_version` identifies the running server independently of the launcher version shown by Claude.
+- The explicit user preference for automatic updates means future runtime code is no longer frozen by the initial MCPB checksum. Repository lockfiles still protect release-check reproducibility. OAuth, credential storage and read-only Ads controls are unchanged.
+- Existing 0.1.9 users must replace that frozen extension once. Future launcher/host-runtime changes can still require an extension update. Network/PyPI availability is required at startup; no silent fallback to bundled old code is used.
+
 # Security review — 0.1.9
 
 Reviewed on 2026-11-06. Scope: application source, OAuth flow, query construction, credential storage, runtime dependencies, release workflows and the macOS MCPB contents. This is an engineering review with automated checks, not an independent penetration-test certification.

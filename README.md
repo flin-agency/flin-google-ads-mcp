@@ -4,7 +4,7 @@ Read-only MCP server for Google Ads, built for simple public use via `uvx`.
 
 ## Install in Claude Desktop on Mac
 
-Download the `.mcpb` file from the [latest GitHub release](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest). See the [Mac installation guide](docs/claude-desktop-mac.md) for setup, credentials and verification. The bundle requires a current Claude Desktop with MCPB UV runtime support and internet access on first launch.
+Download the `.mcpb` file from the [latest GitHub release](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest). See the [Mac installation guide](docs/claude-desktop-mac.md) for setup, credentials and verification. The bundle requires a current Claude Desktop with MCPB UV runtime support and internet access at server startup. From extension 0.1.10 onward, each server start automatically checks PyPI for the latest stable compatible server version. Existing 0.1.9 installations need a one-time extension replacement.
 
 See [SECURITY.md](SECURITY.md) for the security model and [review results](docs/security-review.md).
 
@@ -290,7 +290,7 @@ git tag v0.1.0
 git push origin main --tags
 ```
 
-The `Release` workflow builds, tests and publishes the Mac MCPB and Python packages to a GitHub release. PyPI publishing is a separate explicit workflow-dispatch option using OIDC. See [the release checklist](docs/release.md).
+Every `v*` release automatically builds and tests both packages, publishes to PyPI using OIDC, verifies the published files and the extension startup against PyPI, then publishes the Mac MCPB and Python packages to GitHub. See [the release checklist](docs/release.md).
 
 ## CI
 

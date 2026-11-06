@@ -5,6 +5,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
+from . import __version__
 from .auth import (
     build_auth_url,
     clear_stored_refresh_token,
@@ -162,6 +163,7 @@ def health_check() -> dict[str, Any]:
     if missing:
         return {
             "ok": False,
+            "server_version": __version__,
             "status": "missing_configuration",
             "missing_env_vars": missing,
         }
@@ -173,14 +175,16 @@ def health_check() -> dict[str, Any]:
         if _is_missing_refresh_token(exc):
             return {
                 "ok": False,
+                "server_version": __version__,
                 "status": "missing_auth",
                 "auth_tool": "get_auth_url",
                 "message": str(exc),
             }
-        return _error_payload(exc)
+        return {**_error_payload(exc), "server_version": __version__}
 
     return {
         "ok": True,
+        "server_version": __version__,
         "status": "ready",
         "default_customer_id": settings.default_customer_id,
         "login_customer_id": settings.login_customer_id,

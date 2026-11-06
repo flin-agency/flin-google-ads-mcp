@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: ["**"]
   pull_request:
 
 permissions:
@@ -41,4 +42,4 @@ jobs:
           uv run --locked python scripts/build_mcpb.py
           npx --yes @anthropic-ai/mcpb@2.1.2 validate manifest.json
       - name: Test extracted Claude Desktop package
-        run: uv run --locked python scripts/smoke_mcpb.py dist/*.mcpb
+        run: uv run --locked python scripts/smoke_mcpb.py dist/*.mcpb --wheel dist/*.whl

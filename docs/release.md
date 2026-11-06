@@ -1,8 +1,10 @@
 # Release checklist
 
-1. Update `pyproject.toml`, `src/flin_google_ads_mcp/__init__.py`, `manifest.json` and versioned installation links.
+Every version-tag release automatically produces **both** a PyPI release and a Claude Desktop MCPB. There is no optional PyPI switch.
+
+1. Update `pyproject.toml`, `src/flin_google_ads_mcp/__init__.py`, `manifest.json`, `desktop/pyproject.toml` (loader version) and versioned installation links. Keep the loader's minimum server requirement at 0.1.10 unless it needs a newer API.
 2. Run `uv lock`, review dependency changes and commit `uv.lock`.
-3. Run the release checks:
+3. Run the release checks from a clean checkout:
 
 ```sh
 uv sync --locked --extra dev
@@ -12,11 +14,19 @@ uvx --python 3.12 pip-audit==2.10.1 -r /tmp/requirements.txt --no-deps --disable
 uv build
 uv run --locked python scripts/build_mcpb.py
 npx --yes @anthropic-ai/mcpb@2.1.2 validate manifest.json
-uv run --locked python scripts/smoke_mcpb.py dist/*.mcpb
+uv run --locked python scripts/smoke_mcpb.py dist/*.mcpb --wheel dist/*.whl
 ```
 
-4. Push the reviewed commit, wait for CI on Linux and macOS, then tag that exact commit `vX.Y.Z` and push the tag.
-5. The Release workflow tests the tag, builds the MCPB with checksum and Python packages, and publishes them as GitHub release assets. Verify the asset download and checksum.
-6. Optionally publish to PyPI by manually running Release on that tag with `publish_pypi` selected. Tag pushes do not publish to PyPI automatically. The trusted publisher remains `flin-agency/flin-google-ads-mcp`, workflow `release.yml`, environment `pypi`.
+4. Push the reviewed commit, check CI, tag that exact commit `vX.Y.Z` and push the tag.
+5. The Release workflow performs these steps in order:
+   - Test, audit and build the Python distributions and the MCPB; test startup with the built wheel before publication.
+   - Publish the wheel and source distribution to PyPI using Trusted Publishing/OIDC.
+   - Verify that PyPI serves exactly those distribution hashes and that the **unmodified** MCPB starts the newly published server from PyPI.
+   - Publish the MCPB, its SHA-256 checksum and Python distributions as GitHub release assets.
+6. A retry can be started using workflow dispatch on the same **tag**. Branch dispatches are rejected. Already published PyPI files are skipped, but their hashes must match the build artifacts. GitHub asset upload is retry-safe. Release runs are serialized.
 
-The bundle deliberately contains only files listed in `scripts/build_mcpb.py`. Do not package the repository directory wholesale. User credentials, local caches and `.env` files must never be release assets. The bundle is unsigned, and its UV runtime downloads the locked runtime dependencies on first launch.
+Trusted Publisher: owner `flin-agency`, repository `flin-google-ads-mcp`, workflow `release.yml`, environment `pypi`. Do not add a manual approval requirement if releases must remain unattended.
+
+The MCPB deliberately contains only mapped files in `scripts/build_mcpb.py`. Its root `pyproject.toml` comes from `desktop/pyproject.toml`, not the server project. No credentials, `.env`, local caches, bundled server source or runtime lockfile are shipped.
+
+The installed launcher checks PyPI on each server start. Normal server updates require no new MCPB installation; an already running server takes the update on its next start. A new MCPB is still published with every version for new installations and launcher changes.

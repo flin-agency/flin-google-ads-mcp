@@ -14,8 +14,8 @@ Google receives API requests. Requested account data is returned to the MCP host
 - Token files are created privately (0600), written atomically and protected against final-component symlinks; newly created auth directories use 0700. Existing overly permissive files are rejected. Parent directories and the local user account must be trusted.
 - Credentials are never intentionally returned by tools. Untrusted SDK exception bodies are suppressed. Auth-generated tokens are stored as local plaintext with owner-only permissions; optional extension credentials are marked sensitive for secure host storage.
 - Query inputs use enumerations, strict numeric IDs and controlled date/string filters. Result limits are bounded.
-- Reproducible desktop bundle from an explicit file allowlist; no environment files, credentials, local caches or Git metadata. Locked dependency versions and hashes are included.
-- CI tests, dependency auditing and installation-protocol smoke testing. Release workflows use pinned action commits and narrowly scoped permissions.
+- Reproducible desktop bundle from an explicit file allowlist; no environment files, credentials, local caches or Git metadata. The repository lockfile pins the development/release-check environment. From extension 0.1.10, the launcher intentionally resolves the newest stable compatible server release from PyPI at each startup instead of including server source or a frozen runtime lock.
+- CI tests, dependency auditing, restart-update regression tests and installation-protocol smoke testing. Each tagged release publishes to PyPI automatically; published distribution hashes and a real PyPI-based extension launch are verified before GitHub assets are released. Release workflows use pinned action commits and narrowly scoped permissions.
 
 ## Reporting
 
@@ -23,4 +23,6 @@ Please do not put credentials, authorization codes or private account data in pu
 
 ## Limits
 
-Tests and vulnerability databases cannot prove absence of vulnerabilities. The bundle is unsigned and requires network access on first launch. Automated tests use synthetic credentials; live OAuth consent, real Google Ads permissions and the Claude installation UI require a user-side final check. See [the review record](docs/security-review.md).
+Tests and vulnerability databases cannot prove absence of vulnerabilities. The bundle is unsigned and requires network access at server startup. Automated tests use synthetic credentials; live OAuth consent, real Google Ads permissions and the Claude installation UI require a user-side final check. See [the review record](docs/security-review.md).
+
+Automatic updates trust future stable releases on the configured official PyPI package. Bundle checksums cover the launcher, not future downloaded server code. Runtime dependencies may resolve differently from the development lockfile. Updating the server does not update the extension manifest or the host-managed Python/UV runtime.

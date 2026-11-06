@@ -9,35 +9,30 @@ import tomllib
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = (
-    "manifest.json",
-    "pyproject.toml",
-    "uv.lock",
-    "README.md",
-    "LICENSE",
-    "SECURITY.md",
-    "docs/claude-desktop-mac.md",
-    "docs/security-review.md",
-    "desktop/server.py",
-    "src/flin_google_ads_mcp/__init__.py",
-    "src/flin_google_ads_mcp/auth.py",
-    "src/flin_google_ads_mcp/config.py",
-    "src/flin_google_ads_mcp/google_ads.py",
-    "src/flin_google_ads_mcp/server.py",
-)
+FILES = {
+    "manifest.json": "manifest.json",
+    "pyproject.toml": "desktop/pyproject.toml",
+    "desktop/server.py": "desktop/server.py",
+    "README.md": "README.md",
+    "LICENSE": "LICENSE",
+    "SECURITY.md": "SECURITY.md",
+    "docs/claude-desktop-mac.md": "docs/claude-desktop-mac.md",
+    "docs/security-review.md": "docs/security-review.md",
+}
 
 
 def build(root: Path = ROOT, output_dir: Path | None = None) -> Path:
     manifest = json.loads((root / "manifest.json").read_text())
     project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
-    if manifest["version"] != project["version"]:
+    loader = tomllib.loads((root / "desktop/pyproject.toml").read_text())["project"]
+    if not manifest["version"] == project["version"] == loader["version"]:
         raise ValueError("Manifest and project versions differ.")
     output_dir = output_dir or root / "dist"
     output_dir.mkdir(parents=True, exist_ok=True)
     destination = output_dir / f"flin-google-ads-mcp-{project['version']}-mac.mcpb"
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for name in sorted(FILES):
-            path = root / name
+            path = root / FILES[name]
             if path.is_symlink() or not path.is_file():
                 raise ValueError(f"Missing or unsafe bundle input: {name}")
             info = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))

@@ -1,4 +1,4 @@
-"""Claude Desktop entry point; dependencies are managed by the locked UV project."""
+"""Claude Desktop entry point; UV updates the PyPI server before importing it."""
 
 from flin_google_ads_mcp.server import main
 

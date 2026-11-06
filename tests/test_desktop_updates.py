@@ -1,0 +1,74 @@
+"""Regression: an already installed bundle must load a new server on restart."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _wheel(destination: Path, version: str) -> None:
+    """Make a tiny offline test distribution with the real server package name."""
+    distribution = f"flin_google_ads_mcp-{version}"
+    info = f"{distribution}.dist-info"
+    files = {
+        "flin_google_ads_mcp/__init__.py": "",
+        "flin_google_ads_mcp/server.py": f"def main():\n    print({version!r})\n",
+        f"{info}/METADATA": f"Metadata-Version: 2.1\nName: flin-google-ads-mcp\nVersion: {version}\n",
+        f"{info}/WHEEL": "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+    }
+    files[f"{info}/RECORD"] = "".join(
+        f"{path},,\n" for path in [*files, f"{info}/RECORD"]
+    )
+    with zipfile.ZipFile(
+        destination / f"{distribution}-py3-none-any.whl", "w"
+    ) as archive:
+        for path, content in files.items():
+            archive.writestr(path, content)
+
+
+def test_existing_extension_updates_on_next_start_and_skips_prereleases(tmp_path):
+    uv = shutil.which("uv")
+    assert uv, "Install uv to run the desktop update integration test."
+    installation = tmp_path / "installed extension"
+    (installation / "desktop").mkdir(parents=True)
+    shutil.copyfile(ROOT / "desktop/server.py", installation / "desktop/server.py")
+    shutil.copyfile(ROOT / "desktop/pyproject.toml", installation / "pyproject.toml")
+    links = tmp_path / "index"
+    links.mkdir()
+    manifest = json.loads((ROOT / "manifest.json").read_text())
+    args = [
+        arg.replace("${__dirname}", str(installation))
+        for arg in manifest["server"]["mcp_config"]["args"]
+    ]
+    # Exercise the production launcher, using an isolated offline package source.
+    args[1:1] = ["--offline", "--no-index", "--find-links", str(links)]
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("UV_", "GOOGLE_ADS_")) and key != "VIRTUAL_ENV"
+    }
+    env["UV_CACHE_DIR"] = str(tmp_path / "cache")
+    env["UV_PYTHON_DOWNLOADS"] = "never"
+
+    def start():
+        result = subprocess.run(
+            [uv, *args], env=env, capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout.strip()
+
+    original_launcher = (installation / "desktop/server.py").read_bytes()
+    original_config = (installation / "pyproject.toml").read_bytes()
+    _wheel(links, "0.1.10")
+    assert start() == "0.1.10"
+    _wheel(links, "0.1.11")
+    _wheel(links, "0.1.12rc1")
+    assert start() == "0.1.11"
+    assert (installation / "desktop/server.py").read_bytes() == original_launcher
+    assert (installation / "pyproject.toml").read_bytes() == original_config

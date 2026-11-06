@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
-import sys
 import tempfile
 import zipfile
 
@@ -16,7 +15,9 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-async def smoke(bundle: Path) -> None:
+async def smoke(
+    bundle: Path, wheel: Path | None = None, expected_version: str | None = None
+) -> None:
     with tempfile.TemporaryDirectory(prefix="flin-mcpb-") as temporary:
         root = Path(temporary)
         with zipfile.ZipFile(bundle) as archive:
@@ -34,21 +35,21 @@ async def smoke(bundle: Path) -> None:
             if not key.startswith("GOOGLE_ADS_")
         }
         env["GOOGLE_ADS_AUTH_FILE"] = str(root / "test-auth.json")
-        subprocess.run(
-            [
-                uv,
-                "sync",
-                "--project",
-                str(root),
-                "--locked",
-                "--no-dev",
-                "--no-editable",
-                "--python",
-                "3.12",
-            ],
-            env=env,
-            check=True,
-        )
+        if wheel is not None:
+            # Pre-publication test only: substitute the built wheel for the PyPI dependency.
+            # The shipped bundle and the post-publication test keep the PyPI requirement.
+            project = root / "pyproject.toml"
+            import tomllib
+
+            requirement = tomllib.loads(project.read_text())["project"]["dependencies"][
+                0
+            ]
+            project.write_text(
+                project.read_text().replace(
+                    requirement, f"flin-google-ads-mcp @ {wheel.resolve().as_uri()}"
+                )
+            )
+        env.pop("VIRTUAL_ENV", None)
         args = [arg.replace("${__dirname}", str(root)) for arg in config["args"]]
         async with stdio_client(
             StdioServerParameters(command=uv, args=args, env=env)
@@ -64,10 +65,22 @@ async def smoke(bundle: Path) -> None:
                 assert not health.isError
                 payload = json.loads(health.content[0].text)
                 assert payload["status"] == "missing_configuration", payload
+                if expected_version is not None:
+                    assert payload["server_version"] == expected_version, payload
                 print(
-                    f"MCPB smoke passed: {len(tools)} tools, safe missing-configuration response."
+                    f"MCPB smoke passed: server {payload.get('server_version')}, {len(tools)} tools, safe missing-configuration response."
                 )
 
 
 if __name__ == "__main__":
-    asyncio.run(asyncio.wait_for(smoke(Path(sys.argv[1]).resolve()), timeout=180))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("bundle", type=Path)
+    parser.add_argument("--wheel", type=Path)
+    parser.add_argument("--expected-version")
+    options = parser.parse_args()
+    asyncio.run(
+        asyncio.wait_for(
+            smoke(options.bundle.resolve(), options.wheel, options.expected_version),
+            timeout=180,
+        )
+    )
