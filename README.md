@@ -12,7 +12,7 @@ See [SECURITY.md](SECURITY.md) for the security model and [review results](docs/
 
 - Read-only by design
 - No create/update/delete campaign operations
-- Refresh token can be generated and stored through MCP auth tools
+- Browser sign-in automatically captures and stores the refresh token; access tokens renew automatically
 - Easy local testing with MCP Inspector
 
 ## Exposed MCP tools
@@ -113,7 +113,7 @@ Optional:
 
 - `GOOGLE_ADS_REFRESH_TOKEN` (backwards-compatible override; normally generated with MCP auth tools)
 - `GOOGLE_ADS_AUTH_FILE` (defaults to `~/.config/flin-google-ads-mcp/auth.json`)
-- `GOOGLE_ADS_OAUTH_REDIRECT_URI` (defaults to `http://127.0.0.1:8080/`)
+- `GOOGLE_ADS_OAUTH_REDIRECT_URI` (optional loopback callback override; automatic sign-in defaults to `http://127.0.0.1:<available-port>/`)
 - `GOOGLE_ADS_LOGIN_CUSTOMER_ID`
 - `GOOGLE_ADS_CUSTOMER_ID` (default customer if no `customer_id` argument is passed)
 - `GOOGLE_ADS_USE_PROTO_PLUS` (`true` by default)
@@ -127,11 +127,15 @@ The MCP client config no longer needs `GOOGLE_ADS_REFRESH_TOKEN`.
 1. Configure `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, and `GOOGLE_ADS_CLIENT_SECRET`.
 2. Run `auth_status`.
 3. If it reports `missing_refresh_token`, run `get_auth_url`.
-4. Open the returned Google URL, sign in, and copy the full redirected URL. A localhost connection error is expected; no callback listener is started.
-5. Within 10 minutes, run `save_refresh_token_from_code` with that value in the same server session. The flow uses PKCE and validates state for full URLs.
-6. Run `health_check`.
+4. Open the returned Google URL in a browser on the same computer and sign in within 10 minutes, keeping the MCP server running. The local callback captures the code and stores the refresh token automatically. Wait for the browser success message; no copying is required.
+5. Run `auth_status` and `health_check`, then `list_accessible_customers` to verify live account access. Choose the customer account for your first report.
 
-The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json` by default and is never returned by MCP tools.
+The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json` by default and is never returned by MCP tools. The Google client automatically renews access tokens using that refresh token. Stored credentials survive restarts; expired or revoked refresh tokens require another browser sign-in.
+
+`auth_status` includes `oauth_flow_status` for pending, successful, denied, expired or failed sign-ins. A new `get_auth_url` cancels the previous flow. The temporary HTTP receiver binds only to loopback, validates state and PKCE, and closes after completion or ten minutes. `clear_auth_token` also cancels pending sign-in. A configured callback port must be free; leave `GOOGLE_ADS_OAUTH_REDIRECT_URI` unset to select an available port. This automatic flow requires the browser and MCP server to run on the same computer.
+
+An existing refresh token can still be supplied through the extension's sensitive field or `GOOGLE_ADS_REFRESH_TOKEN`; it takes precedence over the file, so remove a stale override before reauthorizing. `save_refresh_token_from_code` remains a legacy manual fallback, not a required setup step.
+
 
 ## Quick flow: "Avesco spend yesterday"
 

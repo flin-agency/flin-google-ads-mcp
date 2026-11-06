@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "flin-google-ads-mcp",
   "display_name": "flin Google Ads",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Read-only Google Ads reporting for Claude Desktop on macOS.",
   "long_description": "Read campaigns, ads, search terms, conversions and recent changes. Google Ads data is never modified. Authentication tools can store or delete a local refresh token. Requires your own Google Ads API credentials. On every server start the UV runtime checks PyPI and installs the latest stable server release compatible with Python 3.12. Internet access is required; updates take effect on the next server start.",
   "author": {
@@ -85,7 +85,7 @@
     "refresh_token": {
       "type": "string",
       "title": "Refresh token (optional)",
-      "description": "Optional existing refresh token. Otherwise use get_auth_url after installation.",
+      "description": "Optional existing refresh token. Otherwise run get_auth_url and sign in; the token is saved automatically. Access tokens renew automatically.",
       "required": false,
       "sensitive": true,
       "default": ""

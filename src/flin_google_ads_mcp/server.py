@@ -7,7 +7,7 @@ from mcp.types import ToolAnnotations
 
 from . import __version__
 from .auth import (
-    build_auth_url,
+    AUTH_TTL_SECONDS,
     clear_stored_refresh_token,
     exchange_code_for_refresh_token,
     get_auth_file_path,
@@ -16,6 +16,7 @@ from .auth import (
     save_refresh_token,
 )
 from .config import ConfigurationError, load_settings, missing_required_env_vars
+from .oauth_callback import oauth_callback
 from .google_ads import (
     build_ad_group_query,
     build_ads_query,
@@ -217,6 +218,7 @@ def auth_status() -> dict[str, Any]:
                 "auth_file": str(auth_file),
                 "has_env_refresh_token": False,
                 "has_stored_refresh_token": False,
+                "oauth_flow_status": oauth_callback.status(),
                 "auth_tool": "get_auth_url",
             }
         return _error_payload(exc)
@@ -230,18 +232,27 @@ def auth_status() -> dict[str, Any]:
             settings.refresh_token and settings.refresh_token.strip()
         ),
         "has_stored_refresh_token": stored_token is not None,
+        "oauth_flow_status": oauth_callback.status(),
     }
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False))
 def get_auth_url() -> dict[str, Any]:
-    """Create a Google OAuth consent URL for generating a refresh token."""
+    """Start automatic local OAuth capture. Open the returned URL; no code copying is needed."""
     try:
         settings = load_settings()
         return {
             "ok": True,
-            "auth_url": build_auth_url(settings),
-            "next_tool": "save_refresh_token_from_code",
+            "auth_url": oauth_callback.start(
+                settings, get_auth_file_path(), get_google_ads_client.cache_clear
+            ),
+            "next_tool": "auth_status",
+            "expires_in_seconds": AUTH_TTL_SECONDS,
+            "message": (
+                "Open the Google URL in a browser on this computer and sign in within 10 minutes. "
+                "The callback stores the refresh token automatically. Do not copy a code or URL. "
+                "After the browser confirms success, run auth_status, health_check, then list_accessible_customers."
+            ),
         }
     except Exception as exc:
         return _error_payload(exc)
@@ -249,12 +260,16 @@ def get_auth_url() -> dict[str, Any]:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True))
 def save_refresh_token_from_code(code: str) -> dict[str, Any]:
-    """Exchange a Google OAuth authorization code for a refresh token and store it locally."""
+    """Legacy manual fallback; get_auth_url normally captures and stores the token automatically."""
     try:
         settings = load_settings()
-        refresh_token = exchange_code_for_refresh_token(settings, code)
-        auth_file = save_refresh_token(refresh_token, auth_file=get_auth_file_path())
-        get_google_ads_client.cache_clear()
+        with oauth_callback.lock:
+            refresh_token = exchange_code_for_refresh_token(settings, code)
+            auth_file = save_refresh_token(
+                refresh_token, auth_file=get_auth_file_path()
+            )
+            oauth_callback.cancel()
+            get_google_ads_client.cache_clear()
         return {
             "ok": True,
             "status": "stored",
@@ -269,8 +284,10 @@ def clear_auth_token() -> dict[str, Any]:
     """Delete the locally stored refresh token."""
     try:
         auth_file = get_auth_file_path()
-        deleted = clear_stored_refresh_token(auth_file=auth_file)
-        get_google_ads_client.cache_clear()
+        with oauth_callback.lock:
+            oauth_callback.cancel()
+            deleted = clear_stored_refresh_token(auth_file=auth_file)
+            get_google_ads_client.cache_clear()
         return {
             "ok": True,
             "status": "deleted" if deleted else "not_found",

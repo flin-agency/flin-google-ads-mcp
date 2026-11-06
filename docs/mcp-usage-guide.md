@@ -5,7 +5,7 @@ Use this guide when operating `flin-google-ads-mcp` from Claude or MCP Inspector
 ## Recommended call order
 
 1. Run `health_check`
-2. If it returns `missing_auth`, run `get_auth_url`, complete Google consent, then run `save_refresh_token_from_code`
+2. If it returns `missing_auth`, run `get_auth_url`, complete Google consent in a browser on the same computer, and wait for the success message (the token is stored automatically)
 3. Run `auth_status`
 4. Run `list_accessible_customers`
 5. If working with an MCC, run `get_customer_clients` first
@@ -45,7 +45,7 @@ For daily search-term attribution, call `get_search_terms` with `segment_by_date
 
 `missing_auth` / `missing_refresh_token`:
 - The refresh token is not in env and no local auth file exists yet.
-- Run `get_auth_url`, complete Google consent, then pass the copied code or full redirected URL to `save_refresh_token_from_code`.
+- Run `get_auth_url`, complete Google consent on the same computer, then run `auth_status` after the browser confirms success. No code or URL copying is needed.
 
 `USER_PERMISSION_DENIED`:
 - Check the `customer_id` and `login_customer_id` pairing.

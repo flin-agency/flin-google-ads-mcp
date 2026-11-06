@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import ParseResult, parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 import base64
 import hashlib
@@ -45,8 +45,7 @@ def get_redirect_uri() -> str:
     return os.getenv("GOOGLE_ADS_OAUTH_REDIRECT_URI", DEFAULT_REDIRECT_URI).strip()
 
 
-def build_auth_url(settings: Settings, redirect_uri: str | None = None) -> str:
-    redirect = redirect_uri or get_redirect_uri()
+def validate_redirect_uri(redirect: str) -> ParseResult:
     parsed = urlparse(redirect)
     if (
         parsed.scheme != "http"
@@ -59,6 +58,16 @@ def build_auth_url(settings: Settings, redirect_uri: str | None = None) -> str:
         raise ConfigurationError(
             "OAuth redirect URI must be an HTTP loopback URL without query or fragment."
         )
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ConfigurationError("OAuth loopback port is invalid.") from exc
+    return parsed
+
+
+def build_auth_url(settings: Settings, redirect_uri: str | None = None) -> str:
+    redirect = redirect_uri or get_redirect_uri()
+    validate_redirect_uri(redirect)
     verifier = secrets.token_urlsafe(64)
     state = secrets.token_urlsafe(32)
     challenge = (
@@ -173,8 +182,8 @@ def resolve_refresh_token(
         return ResolvedRefreshToken(stored, "file")
 
     raise ConfigurationError(
-        "Missing Google Ads refresh token. Call get_auth_url, sign in, then pass "
-        "the returned authorization code or redirect URL to save_refresh_token_from_code."
+        "Missing Google Ads refresh token. Call get_auth_url and sign in in the browser. "
+        "The local callback stores the token automatically; then call auth_status."
     )
 
 
@@ -191,7 +200,7 @@ def exchange_code_for_refresh_token(
                 "Call get_auth_url and complete sign-in within 10 minutes in this server session."
             )
         if pending["client_id"] != settings.client_id or pending["redirect_uri"] != (
-            redirect_uri or get_redirect_uri()
+            redirect_uri or pending["redirect_uri"]
         ):
             raise ConfigurationError(
                 "OAuth configuration changed. Call get_auth_url again."
@@ -199,14 +208,18 @@ def exchange_code_for_refresh_token(
         parsed = urlparse(raw_code_or_url.strip())
         if parsed.scheme or parsed.netloc:
             expected = urlparse(pending["redirect_uri"])
-            query = parse_qs(parsed.query)
+            query = parse_qs(parsed.query, keep_blank_values=True)
             if (
                 (parsed.scheme, parsed.netloc, parsed.path)
                 != (expected.scheme, expected.netloc, expected.path)
                 or parsed.fragment
+                or "error" in query
                 or len(query.get("code", [])) != 1
+                or not query["code"][0]
                 or len(query.get("state", [])) != 1
-                or not secrets.compare_digest(query["state"][0], pending["state"])
+                or not secrets.compare_digest(
+                    query["state"][0].encode(), pending["state"].encode()
+                )
             ):
                 raise ConfigurationError(
                     "OAuth redirect or state mismatch. Use the URL from the latest sign-in."
@@ -220,7 +233,7 @@ def exchange_code_for_refresh_token(
             "code": code,
             "grant_type": "authorization_code",
             "code_verifier": pending["verifier"],
-            "redirect_uri": redirect_uri or get_redirect_uri(),
+            "redirect_uri": pending["redirect_uri"],
         }
     ).encode("utf-8")
     request = Request(

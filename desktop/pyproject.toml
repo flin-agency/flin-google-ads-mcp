@@ -1,6 +1,6 @@
 [project]
 name = "flin-google-ads-desktop-loader"
-version = "0.1.10"
+version = "0.1.11"
 description = "Auto-updating Claude Desktop launcher for flin Google Ads MCP."
 requires-python = ">=3.12,<3.13"
 dependencies = ["flin-google-ads-mcp>=0.1.10"]

@@ -25,6 +25,8 @@ What this validates:
 - query builders and config validation logic
 - Python syntax/import safety
 - package can be built into wheel and sdist
+- real loopback HTTP callbacks with mocked Google token exchange, including invalid state, denial, timeout, retries, port conflicts and private token storage
+- Google client refreshes expired access tokens automatically (mocked token endpoint)
 
 ## 2) Local MCP runtime test with Inspector
 
@@ -45,7 +47,8 @@ If no refresh token has been stored yet, generate it through MCP:
 1. Call `auth_status`.
 2. Call `get_auth_url`.
 3. Open the returned URL and sign in.
-4. Pass the copied `code` value or full redirected URL to `save_refresh_token_from_code`.
+4. Wait for the browser to confirm that sign-in completed. The callback saves the token automatically.
+5. Call `auth_status`, `health_check`, and `list_accessible_customers`. Keep the same server session running throughout sign-in; the browser must run on the same computer.
 
 ### 2.2 List tools (CLI mode)
 
@@ -292,7 +295,7 @@ Then ask Claude:
 `missing_auth` or `missing_refresh_token`:
 
 - The fixed Google Ads credentials are present, but no refresh token is configured or stored.
-- Fix: run `get_auth_url`, complete Google consent, then run `save_refresh_token_from_code`.
+- Fix: run `get_auth_url`, complete Google consent on the same computer, wait for the browser success message, then run `auth_status`.
 
 `PERMISSION_DENIED`:
 
