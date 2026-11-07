@@ -1,12 +1,20 @@
 # flin-google-ads-mcp
 
-Read-only MCP server for Google Ads, built for simple public use via `uvx`.
+Read-only Google Ads reporting in Claude Desktop.
 
-## Install in Claude Desktop on Mac
+## Start on Mac (Apple Silicon M1 or newer)
 
-Download the `.mcpb` file from the [latest GitHub release](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest). See the [Mac installation guide](docs/claude-desktop-mac.md) for setup, credentials and verification. The bundle requires a current Claude Desktop with MCPB UV runtime support and internet access at server startup. From extension 0.1.10 onward, each server start automatically checks PyPI for the latest stable compatible server version. Existing 0.1.9 installations need a one-time extension replacement.
+1. [Download the Mac extension](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest/download/flin-google-ads-mcp.mcpb). The same package also supports Intel Macs.
+2. In Claude Desktop, open **Settings → Extensions → Advanced settings → Install Extension…** and select the `.mcpb` file. Use a Claude version supporting the MCPB UV runtime.
+3. Enter the **developer token, OAuth Desktop app client ID and client secret** supplied by your administrator/password manager. Customer and manager IDs are optional. An existing refresh token belongs in its sensitive settings field, never in chat.
+4. Enable the extension. Without an existing token, ask Claude to run `get_auth_url`, open the Google link on this Mac and sign in. The callback saves the token automatically; no URL/code copying is needed.
+5. Run `connection_status` for a local setup check, then `connection_status(check_live=true)` to test Google Ads access. Run `list_accessible_customers`, select your account and ask for `get_campaigns` with that customer ID and `limit=5`.
 
-See [SECURITY.md](SECURITY.md) for the security model and [review results](docs/security-review.md).
+The **extension version** describes the installed starter/settings. `connection_status.server_version` is the **running server version**. The new starter updates to stable `>=0.1.12,<0.2` servers at the next restart; it excludes prereleases. Running sessions, settings and local tokens are preserved. Import the current package once to give older starters this boundary; future starter/UI changes can also require an import. Existing 0.1.10/0.1.11 starters still receive this server update, but have no upper version bound.
+
+Internet is required at startup. There is no automatic offline fallback. See [setup, update limits and recovery](docs/claude-desktop-mac.md); versioned packages remain on the [release page](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest).
+
+[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Support](SUPPORT.md)
 
 ## Why this server
 
@@ -17,6 +25,7 @@ See [SECURITY.md](SECURITY.md) for the security model and [review results](docs/
 
 ## Exposed MCP tools
 
+- `connection_status` (local by default; optional explicit live check)
 - `health_check`
 - `list_accessible_customers`
 - `get_customer_clients`
@@ -62,8 +71,8 @@ Example:
 {
   "tool": "get_change_events",
   "args": {
-    "customer_id": "2054139041",
-    "login_customer_id": "6050181535",
+    "customer_id": "1234567890",
+    "login_customer_id": "0987654321",
     "start_date": "2026-06-01",
     "end_date": "2026-06-15",
     "resource_type": "CAMPAIGN",
@@ -100,7 +109,7 @@ Rules:
 
 Use `get_insights` for general performance metrics such as impressions, clicks, CTR, CPC, and cost. Use `get_conversion_insights` for conversion-action or daily conversion breakdowns.
 
-## Requirements
+## Developer requirements
 
 1. Python 3.10+
 2. Node.js v25.8.1+ (only for MCP Inspector testing)
@@ -128,7 +137,7 @@ The MCP client config no longer needs `GOOGLE_ADS_REFRESH_TOKEN`.
 2. Run `auth_status`.
 3. If it reports `missing_refresh_token`, run `get_auth_url`.
 4. Open the returned Google URL in a browser on the same computer and sign in within 10 minutes, keeping the MCP server running. The local callback captures the code and stores the refresh token automatically. Wait for the browser success message; no copying is required.
-5. Run `auth_status` and `health_check`, then `list_accessible_customers` to verify live account access. Choose the customer account for your first report.
+5. Run `connection_status`, then `connection_status(check_live=true)` and `list_accessible_customers` to verify live account access. Choose the customer account for your first report.
 
 The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json` by default and is never returned by MCP tools. The Google client automatically renews access tokens using that refresh token. Stored credentials survive restarts; expired or revoked refresh tokens require another browser sign-in.
 
@@ -137,7 +146,7 @@ The stored refresh token is written to `~/.config/flin-google-ads-mcp/auth.json`
 An existing refresh token can still be supplied through the extension's sensitive field or `GOOGLE_ADS_REFRESH_TOKEN`; it takes precedence over the file, so remove a stale override before reauthorizing. `save_refresh_token_from_code` remains a legacy manual fallback, not a required setup step.
 
 
-## Quick flow: "Avesco spend yesterday"
+## Quick flow: "Example Customer spend yesterday"
 
 1. Find the subaccount by name under the manager:
 
@@ -145,9 +154,9 @@ An existing refresh token can still be supplied through the extension's sensitiv
 {
   "tool": "find_customer_clients",
   "args": {
-    "manager_customer_id": "6050181535",
-    "login_customer_id": "6050181535",
-    "name_query": "Avesco",
+    "manager_customer_id": "0987654321",
+    "login_customer_id": "0987654321",
+    "name_query": "Example Customer",
     "direct_only": false,
     "include_hidden": false,
     "include_self": false,
@@ -163,8 +172,8 @@ An existing refresh token can still be supplied through the extension's sensitiv
 {
   "tool": "get_insights",
   "args": {
-    "customer_id": "2054139041",
-    "login_customer_id": "6050181535",
+    "customer_id": "1234567890",
+    "login_customer_id": "0987654321",
     "level": "account",
     "date_range": "YESTERDAY",
     "limit": 10
@@ -203,17 +212,17 @@ uv run flin-google-ads-mcp
 ## Quickstart (as published package)
 
 ```bash
-uvx flin-google-ads-mcp@latest
+uvx --prerelease disallow --from "flin-google-ads-mcp>=0.1.12,<0.2" flin-google-ads-mcp
 ```
 
-## Claude integration (published via uvx)
+## Developer configuration (published via uvx)
 
 ```json
 {
   "mcpServers": {
     "flin-google-ads-mcp": {
       "command": "uvx",
-      "args": ["flin-google-ads-mcp@latest"],
+      "args": ["--prerelease", "disallow", "--from", "flin-google-ads-mcp>=0.1.12,<0.2", "flin-google-ads-mcp"],
       "env": {
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
@@ -236,7 +245,7 @@ uvx flin-google-ads-mcp@latest
       "args": [
         "run",
         "--directory",
-        "/Users/nicolasg/Antigravity/flin-google-ads-mcp",
+        "/absolute/path/to/flin-google-ads-mcp",
         "flin-google-ads-mcp"
       ],
       "env": {
@@ -286,13 +295,7 @@ In PyPI project settings for `flin-google-ads-mcp`, add a Trusted Publisher with
 
 ### 2) Cut a release
 
-```bash
-# bump version in pyproject.toml first, then:
-git add -A
-git commit -m "release: v0.1.0"
-git tag v0.1.0
-git push origin main --tags
-```
+Follow [the release checklist](docs/release.md) to keep the server, starter, stable download alias and published packages in sync.
 
 Every `v*` release automatically builds and tests both packages, publishes to PyPI using OIDC, verifies the published files and the extension startup against PyPI, then publishes the Mac MCPB and Python packages to GitHub. See [the release checklist](docs/release.md).
 

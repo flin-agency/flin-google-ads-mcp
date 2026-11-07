@@ -60,6 +60,7 @@ npx -y @modelcontextprotocol/inspector --cli \
 
 Expected:
 
+- `connection_status`
 - `health_check`
 - `auth_status`
 - `get_auth_url`
@@ -156,7 +157,7 @@ npx -y @modelcontextprotocol/inspector --cli \
   --tool-name find_customer_clients \
   --tool-arg manager_customer_id=0987654321 \
   --tool-arg login_customer_id=0987654321 \
-  --tool-arg name_query=Avesco \
+  --tool-arg name_query=Example Customer \
   --tool-arg direct_only=false \
   --tool-arg include_hidden=false \
   --tool-arg include_self=false \
@@ -265,7 +266,7 @@ Use this config:
   "mcpServers": {
     "flin-google-ads-mcp": {
       "command": "uvx",
-      "args": ["flin-google-ads-mcp@latest"],
+      "args": ["--prerelease", "disallow", "--from", "flin-google-ads-mcp>=0.1.12,<0.2", "flin-google-ads-mcp"],
       "env": {
         "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
@@ -280,7 +281,7 @@ Use this config:
 
 Then ask Claude:
 
-1. `Run health_check`
+1. `Run connection_status, then connection_status with check_live=true`
 2. `List accessible customers`
 3. `Get campaigns for customer 1234567890 with limit 5`
 4. `Get campaign insights for last 30 days`

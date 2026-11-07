@@ -2,11 +2,13 @@
 
 Use this guide when operating `flin-google-ads-mcp` from Claude or MCP Inspector.
 
+Start with `connection_status`: this only reads local configuration and token presence. A token means `auth_status=unknown`, not verified access. Use `connection_status(check_live=true)` for an explicit status-only Google Ads API check, then `list_accessible_customers` to choose the account. Existing `health_check` and `auth_status` retain their original fields and are not account-access proofs.
+
 ## Recommended call order
 
-1. Run `health_check`
-2. If it returns `missing_auth`, run `get_auth_url`, complete Google consent in a browser on the same computer, and wait for the success message (the token is stored automatically)
-3. Run `auth_status`
+1. Run `connection_status`
+2. If it reports `unauthenticated`, run `get_auth_url`, complete Google consent in a browser on the same computer, and wait for the success message (the token is stored automatically)
+3. Run `connection_status(check_live=true)`
 4. Run `list_accessible_customers`
 5. If working with an MCC, run `get_customer_clients` first
 6. If you need a specific client by name, run `find_customer_clients`

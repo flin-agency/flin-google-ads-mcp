@@ -158,6 +158,52 @@ def _change_event_changes(event: Any, resource_type: str) -> list[dict[str, Any]
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
+def connection_status(check_live: bool = False) -> dict[str, Any]:
+    """Report setup without network access by default. check_live=True explicitly tests Google Ads access; no customer data is returned."""
+    result = {
+        "server_version": __version__,
+        "configuration_status": "incomplete",
+        "auth_status": "unknown",
+        "live_access": "not_checked",
+        "next_step": "Enter the required Google Ads credentials in the extension settings, then restart the extension.",
+    }
+    if missing_required_env_vars():
+        return result
+    try:
+        settings = load_settings()
+        for customer_id in (settings.default_customer_id, settings.login_customer_id):
+            if customer_id:
+                normalize_customer_id(customer_id)
+    except Exception:
+        result["next_step"] = "Correct the account IDs or configuration in the extension settings, then restart the extension."
+        return result
+    result["configuration_status"] = "configured"
+    try:
+        token = settings.refresh_token and settings.refresh_token.strip()
+        if not token:
+            token = load_stored_refresh_token()
+    except Exception:
+        result["next_step"] = "Check the local auth file ownership and permissions (0600), then run get_auth_url if needed."
+        return result
+    if not token:
+        result["auth_status"] = "unauthenticated"
+        result["next_step"] = "Run get_auth_url and sign in on this computer; the token is saved automatically."
+        return result
+    result["next_step"] = "Run connection_status with check_live=true to test Google Ads access."
+    if check_live:
+        try:
+            list_accessible_customer_ids()
+        except Exception:
+            result["live_access"] = "error"
+            result["next_step"] = "Check Google Ads API permissions and credentials; if consent expired, remove any stale refresh-token override and run get_auth_url."
+        else:
+            result["auth_status"] = "authenticated"
+            result["live_access"] = "ok"
+            result["next_step"] = "Run list_accessible_customers, choose the customer account, then request a report."
+    return result
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
 def health_check() -> dict[str, Any]:
     """Check whether required Google Ads configuration is present and client initialization works."""
     missing = missing_required_env_vars()

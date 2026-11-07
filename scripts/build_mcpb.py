@@ -16,6 +16,8 @@ FILES = {
     "README.md": "README.md",
     "LICENSE": "LICENSE",
     "SECURITY.md": "SECURITY.md",
+    "PRIVACY.md": "PRIVACY.md",
+    "SUPPORT.md": "SUPPORT.md",
     "docs/claude-desktop-mac.md": "docs/claude-desktop-mac.md",
     "docs/security-review.md": "docs/security-review.md",
 }
@@ -44,6 +46,9 @@ def build(root: Path = ROOT, output_dir: Path | None = None) -> Path:
     destination.with_suffix(".mcpb.sha256").write_text(
         f"{digest}  {destination.name}\n"
     )
+    alias = output_dir / "flin-google-ads-mcp.mcpb"
+    alias.write_bytes(destination.read_bytes())
+    alias.with_suffix(".mcpb.sha256").write_text(f"{digest}  {alias.name}\n")
     return destination
 
 

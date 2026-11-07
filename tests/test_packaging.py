@@ -30,6 +30,12 @@ def test_bundle_is_reproducible_and_contains_only_allowed_files(tmp_path):
     spec.loader.exec_module(module)
     bundle = module.build(output_dir=tmp_path)
     first = bundle.read_bytes()
+    alias = tmp_path / "flin-google-ads-mcp.mcpb"
+    assert alias.read_bytes() == first
+    assert (
+        alias.with_suffix(".mcpb.sha256").read_text()
+        == f"{hashlib.sha256(first).hexdigest()}  {alias.name}\n"
+    )
     assert module.build(output_dir=tmp_path).read_bytes() == first
     assert (
         bundle.with_suffix(".mcpb.sha256")
@@ -49,4 +55,6 @@ def test_bundle_is_reproducible_and_contains_only_allowed_files(tmp_path):
         assert not any(name.startswith("src/") for name in archive.namelist())
         project = tomllib.loads(archive.read("pyproject.toml").decode())
         assert project["project"]["name"] == "flin-google-ads-desktop-loader"
-        assert project["project"]["dependencies"] == ["flin-google-ads-mcp>=0.1.10"]
+        assert project["project"]["dependencies"] == [
+            "flin-google-ads-mcp>=0.1.12,<0.2"
+        ]
