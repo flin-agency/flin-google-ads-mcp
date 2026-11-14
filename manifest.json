@@ -2,9 +2,9 @@
   "manifest_version": "0.4",
   "name": "flin-google-ads-mcp",
   "display_name": "flin Google Ads",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Read-only Google Ads reporting for Claude Desktop on macOS.",
-  "long_description": "Read campaigns, ads, search terms, conversions and recent changes. Google Ads data is never modified. Authentication tools can store or delete a local refresh token. Requires your own Google Ads API credentials. On every server start the UV runtime checks PyPI and installs the latest stable server in the supported >=0.1.12,<0.2 range using Python 3.12. Internet access is required; updates take effect on the next server start.",
+  "long_description": "Read campaigns, ads, search terms, conversions and recent changes. Google Ads data is never modified. Authentication tools can store or delete a local refresh token. Requires your own OAuth credentials and Google Ads API access for their Google Cloud project; no developer token is needed. On every server start the UV runtime checks PyPI and installs the latest stable server in the supported >=0.1.13,<0.2 range using Python 3.12. Internet access is required; updates take effect on the next server start.",
   "author": {
     "name": "flin.agency",
     "url": "https://github.com/flin-agency"
@@ -51,7 +51,6 @@
         "desktop/server.py"
       ],
       "env": {
-        "GOOGLE_ADS_DEVELOPER_TOKEN": "${user_config.developer_token}",
         "GOOGLE_ADS_CLIENT_ID": "${user_config.client_id}",
         "GOOGLE_ADS_CLIENT_SECRET": "${user_config.client_secret}",
         "GOOGLE_ADS_REFRESH_TOKEN": "${user_config.refresh_token}",
@@ -61,13 +60,6 @@
     }
   },
   "user_config": {
-    "developer_token": {
-      "type": "string",
-      "title": "Developer token",
-      "description": "Google Ads API developer token.",
-      "required": true,
-      "sensitive": true
-    },
     "client_id": {
       "type": "string",
       "title": "OAuth client ID",

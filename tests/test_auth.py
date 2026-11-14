@@ -10,7 +10,6 @@ from flin_google_ads_mcp.config import ConfigurationError, Settings
 
 def _settings(refresh_token: str | None = None) -> Settings:
     return Settings(
-        developer_token="dev",
         client_id="client-id.apps.googleusercontent.com",
         client_secret="client-secret",
         refresh_token=refresh_token,

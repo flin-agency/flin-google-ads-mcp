@@ -121,7 +121,6 @@ def _change_event_row() -> SimpleNamespace:
 
 def _settings(refresh_token: str | None = None) -> Settings:
     return Settings(
-        developer_token="dev",
         client_id="client-id.apps.googleusercontent.com",
         client_secret="client-secret",
         refresh_token=refresh_token,

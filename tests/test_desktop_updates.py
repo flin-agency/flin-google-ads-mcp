@@ -102,8 +102,8 @@ def test_existing_extension_updates_on_next_start_and_skips_prereleases(tmp_path
 
     original_launcher = (installation / "desktop/server.py").read_bytes()
     original_config = (installation / "pyproject.toml").read_bytes()
-    _wheel(links, "0.1.12")
-    assert start() == "0.1.12"
+    _wheel(links, "0.1.13")
+    assert start() == "0.1.13"
     running = subprocess.Popen(
         [uv, *args],
         env=env,
@@ -113,16 +113,16 @@ def test_existing_extension_updates_on_next_start_and_skips_prereleases(tmp_path
         text=True,
     )
     try:
-        assert json.loads(running.stdout.readline())["version"] == "0.1.12"
-        _wheel(links, "0.1.13")
-        _wheel(links, "0.1.14rc1")
+        assert json.loads(running.stdout.readline())["version"] == "0.1.13"
+        _wheel(links, "0.1.14")
+        _wheel(links, "0.1.15rc1")
         _wheel(links, "0.2.0")
         _wheel(links, "1.0.0")
-        assert start() == "0.1.13"
-        assert start(offline_fallback=True) == "0.1.13"
+        assert start() == "0.1.14"
+        assert start(offline_fallback=True) == "0.1.14"
         running.stdin.write("still running\n")
         running.stdin.flush()
-        assert running.stdout.readline().strip() == "0.1.12"
+        assert running.stdout.readline().strip() == "0.1.13"
     finally:
         running.communicate(timeout=10)
     assert auth_file.read_bytes() == original_auth

@@ -19,7 +19,7 @@ from flin_google_ads_mcp.oauth_callback import oauth_callback
 
 @pytest.fixture
 def setup(monkeypatch, tmp_path):
-    settings = Settings("dev", "client", "secret", None, None, None, True)
+    settings = Settings("client", "secret", None, None, None, True)
     path = tmp_path / "auth.json"
     monkeypatch.delenv("GOOGLE_ADS_OAUTH_REDIRECT_URI", raising=False)
     monkeypatch.setenv("GOOGLE_ADS_AUTH_FILE", str(path))

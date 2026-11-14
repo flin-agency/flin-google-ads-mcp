@@ -25,7 +25,7 @@ def isolated_auth():
 
 
 def settings():
-    return Settings("dev", "client", "secret", None, None, None, True)
+    return Settings("client", "secret", None, None, None, True)
 
 
 def test_oauth_requires_pending_request():

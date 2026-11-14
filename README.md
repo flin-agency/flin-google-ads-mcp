@@ -6,11 +6,11 @@ Read-only Google Ads reporting in Claude Desktop.
 
 1. [Download the Mac extension](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest/download/flin-google-ads-mcp.mcpb). The same package also supports Intel Macs.
 2. In Claude Desktop, open **Settings → Extensions → Advanced settings → Install Extension…** and select the `.mcpb` file. Use a Claude version supporting the MCPB UV runtime.
-3. Enter the **developer token, OAuth Desktop app client ID and client secret** supplied by your administrator/password manager. Customer and manager IDs are optional. An existing refresh token belongs in its sensitive settings field, never in chat.
+3. Enter the **OAuth Desktop app client ID and client secret** supplied by your administrator/password manager. Customer and manager IDs are optional. An existing refresh token belongs in its sensitive settings field, never in chat.
 4. Enable the extension. Without an existing token, ask Claude to run `get_auth_url`, open the Google link on this Mac and sign in. The callback saves the token automatically; no URL/code copying is needed.
 5. Run `connection_status` for a local setup check, then `connection_status(check_live=true)` to test Google Ads access. Run `list_accessible_customers`, select your account and ask for `get_campaigns` with that customer ID and `limit=5`.
 
-The **extension version** describes the installed starter/settings. `connection_status.server_version` is the **running server version**. The new starter updates to stable `>=0.1.12,<0.2` servers at the next restart; it excludes prereleases. Running sessions, settings and local tokens are preserved. Import the current package once to give older starters this boundary; future starter/UI changes can also require an import. Existing 0.1.10/0.1.11 starters still receive this server update, but have no upper version bound.
+The **extension version** describes the installed starter/settings. `connection_status.server_version` is the **running server version**. The new starter updates to stable `>=0.1.13,<0.2` servers at the next restart; it excludes prereleases. Running sessions, settings and local tokens are preserved. Import the current package once to remove the old developer-token field and give older starters this boundary; future starter/UI changes can also require an import. Existing 0.1.12 starters still receive this server update; 0.1.10/0.1.11 starters do too, but have no upper version bound.
 
 Internet is required at startup. There is no automatic offline fallback. See [setup, update limits and recovery](docs/claude-desktop-mac.md); versioned packages remain on the [release page](https://github.com/flin-agency/flin-google-ads-mcp/releases/latest).
 
@@ -114,9 +114,12 @@ Use `get_insights` for general performance metrics such as impressions, clicks, 
 1. Python 3.10+
 2. Node.js v25.8.1+ (only for MCP Inspector testing)
 3. Google Ads API credentials:
-- `GOOGLE_ADS_DEVELOPER_TOKEN`
 - `GOOGLE_ADS_CLIENT_ID`
 - `GOOGLE_ADS_CLIENT_SECRET`
+
+No developer token is required. Google [sunset developer tokens on September 9, 2026](https://developers.google.com/google-ads/api/docs/api-policy/developer-token); API access is managed by the Google Cloud project that owns these OAuth credentials. Enable the Google Ads API in that project and verify its access level in the [Google Cloud Console](https://console.cloud.google.com/apis/api/googleads.googleapis.com/overview). Production accounts require Explorer access or higher, as well as the signed-in user's Google Ads account permissions.
+
+Server 0.1.13 and later ignore any existing `GOOGLE_ADS_DEVELOPER_TOKEN` setting, so old configurations keep working. You can remove it without changing your OAuth credentials or saved refresh token. The included `google-ads>=35.0.0,<36` SDK supports requests without a developer token.
 
 Optional:
 
@@ -133,7 +136,7 @@ For MCC flows, you can also pass `login_customer_id` directly per tool call.
 
 The MCP client config no longer needs `GOOGLE_ADS_REFRESH_TOKEN`.
 
-1. Configure `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, and `GOOGLE_ADS_CLIENT_SECRET`.
+1. Configure `GOOGLE_ADS_CLIENT_ID` and `GOOGLE_ADS_CLIENT_SECRET`.
 2. Run `auth_status`.
 3. If it reports `missing_refresh_token`, run `get_auth_url`.
 4. Open the returned Google URL in a browser on the same computer and sign in within 10 minutes, keeping the MCP server running. The local callback captures the code and stores the refresh token automatically. Wait for the browser success message; no copying is required.
@@ -212,7 +215,7 @@ uv run flin-google-ads-mcp
 ## Quickstart (as published package)
 
 ```bash
-uvx --prerelease disallow --from "flin-google-ads-mcp>=0.1.12,<0.2" flin-google-ads-mcp
+uvx --prerelease disallow --from "flin-google-ads-mcp>=0.1.13,<0.2" flin-google-ads-mcp
 ```
 
 ## Developer configuration (published via uvx)
@@ -222,9 +225,8 @@ uvx --prerelease disallow --from "flin-google-ads-mcp>=0.1.12,<0.2" flin-google-
   "mcpServers": {
     "flin-google-ads-mcp": {
       "command": "uvx",
-      "args": ["--prerelease", "disallow", "--from", "flin-google-ads-mcp>=0.1.12,<0.2", "flin-google-ads-mcp"],
+      "args": ["--prerelease", "disallow", "--from", "flin-google-ads-mcp>=0.1.13,<0.2", "flin-google-ads-mcp"],
       "env": {
-        "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
@@ -249,7 +251,6 @@ uvx --prerelease disallow --from "flin-google-ads-mcp>=0.1.12,<0.2" flin-google-
         "flin-google-ads-mcp"
       ],
       "env": {
-        "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",

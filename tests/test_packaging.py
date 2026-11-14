@@ -48,7 +48,9 @@ def test_bundle_is_reproducible_and_contains_only_allowed_files(tmp_path):
         manifest = json.loads(archive.read("manifest.json"))
         assert "--upgrade-package" in manifest["server"]["mcp_config"]["args"]
         assert "--locked" not in manifest["server"]["mcp_config"]["args"]
-        for name in ("developer_token", "client_secret", "refresh_token"):
+        assert "developer_token" not in manifest["user_config"]
+        assert "GOOGLE_ADS_DEVELOPER_TOKEN" not in manifest["server"]["mcp_config"]["env"]
+        for name in ("client_secret", "refresh_token"):
             assert manifest["user_config"][name]["sensitive"] is True
         assert "desktop/server.py" in archive.namelist()
         assert "uv.lock" not in archive.namelist()
@@ -56,5 +58,5 @@ def test_bundle_is_reproducible_and_contains_only_allowed_files(tmp_path):
         project = tomllib.loads(archive.read("pyproject.toml").decode())
         assert project["project"]["name"] == "flin-google-ads-desktop-loader"
         assert project["project"]["dependencies"] == [
-            "flin-google-ads-mcp>=0.1.12,<0.2"
+            "flin-google-ads-mcp>=0.1.13,<0.2"
         ]

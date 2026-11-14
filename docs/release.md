@@ -2,7 +2,7 @@
 
 Every version-tag release automatically produces **both** a PyPI release and a Claude Desktop MCPB. There is no optional PyPI switch.
 
-1. Update `pyproject.toml`, `src/flin_google_ads_mcp/__init__.py`, `manifest.json`, `desktop/pyproject.toml` (loader version) and installation instructions. Keep the starter's tested `>=0.1.12,<0.2` range unless its interface contract changes. Never expand the upper bound without compatibility checks.
+1. Update `pyproject.toml`, `src/flin_google_ads_mcp/__init__.py`, `manifest.json`, `desktop/pyproject.toml` (loader version) and installation instructions. Keep the starter's tested `>=0.1.13,<0.2` range unless its interface contract changes. Never expand the upper bound without compatibility checks.
 2. Run `uv lock`, review dependency changes and commit `uv.lock`.
 3. Run the release checks from a clean checkout:
 

@@ -287,7 +287,6 @@ def get_google_ads_client(login_customer_id: str | None = None) -> Any:
         ) from exc
 
     config_dict: dict[str, Any] = {
-        "developer_token": settings.developer_token,
         "client_id": settings.client_id,
         "client_secret": settings.client_secret,
         "refresh_token": refresh_token,

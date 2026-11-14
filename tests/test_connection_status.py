@@ -14,7 +14,7 @@ def configured(monkeypatch, tmp_path):
         server,
         "load_settings",
         lambda: Settings(
-            "private-dev", "private-client", "private-secret", None, None, None, True
+            "private-client", "private-secret", None, None, None, True
         ),
     )
     monkeypatch.setenv("GOOGLE_ADS_AUTH_FILE", str(tmp_path / "auth.json"))
@@ -115,7 +115,7 @@ def test_invalid_account_configuration_is_incomplete(configured, monkeypatch):
         server,
         "load_settings",
         lambda: Settings(
-            "dev", "client", "secret", None, None, "invalid-private-id", True
+            "client", "secret", None, None, "invalid-private-id", True
         ),
     )
     result = server.connection_status()
@@ -128,7 +128,7 @@ def test_env_override_does_not_require_reading_broken_file(configured, monkeypat
     monkeypatch.setattr(
         server,
         "load_settings",
-        lambda: Settings("dev", "client", "secret", "env-token", None, None, True),
+        lambda: Settings("client", "secret", "env-token", None, None, True),
     )
     result = server.connection_status()
     assert result["configuration_status"] == "configured"

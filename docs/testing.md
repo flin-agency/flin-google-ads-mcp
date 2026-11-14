@@ -35,7 +35,6 @@ Requires Node.js v25.8.1+ (for `npx` / Inspector CLI).
 ### 2.1 Export credentials in your shell
 
 ```bash
-export GOOGLE_ADS_DEVELOPER_TOKEN="..."
 export GOOGLE_ADS_CLIENT_ID="..."
 export GOOGLE_ADS_CLIENT_SECRET="..."
 export GOOGLE_ADS_CUSTOMER_ID="1234567890"
@@ -266,9 +265,8 @@ Use this config:
   "mcpServers": {
     "flin-google-ads-mcp": {
       "command": "uvx",
-      "args": ["--prerelease", "disallow", "--from", "flin-google-ads-mcp>=0.1.12,<0.2", "flin-google-ads-mcp"],
+      "args": ["--prerelease", "disallow", "--from", "flin-google-ads-mcp>=0.1.13,<0.2", "flin-google-ads-mcp"],
       "env": {
-        "GOOGLE_ADS_DEVELOPER_TOKEN": "xxx",
         "GOOGLE_ADS_CLIENT_ID": "xxx",
         "GOOGLE_ADS_CLIENT_SECRET": "xxx",
         "GOOGLE_ADS_CUSTOMER_ID": "1234567890",
@@ -301,7 +299,7 @@ Then ask Claude:
 `PERMISSION_DENIED`:
 
 - OAuth user/token is valid but lacks account access or API permissions.
-- Fix: confirm account permissions and developer token access level.
+- Fix: confirm account permissions and the Google Ads API access level of the Google Cloud project that owns the OAuth client.
 
 `CUSTOMER_NOT_FOUND` or request errors:
 
